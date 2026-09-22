@@ -20,7 +20,7 @@ export const es: UIStrings = {
     next: 'Siguiente',
     previous: 'Anterior',
     backToTop: 'Volver al principio',
-    position: (index, total) => `Tarjeta ${index} de ${total}`,
+    position: 'Tarjeta {index} de {total}',
     skipToContent: 'Ir al contenido',
     swipeHint: 'Desliza hacia arriba',
   },

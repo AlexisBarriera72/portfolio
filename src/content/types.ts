@@ -40,8 +40,8 @@ export interface Img {
 
 /**
  * A short clip. Always muted + looping + playsinline; the components add those.
- * Keep each file under 2MB — there is no build step that can enforce that, so
- * `sizeKb` is recorded by hand and checked by scripts/check-media.mjs.
+ * Each file must stay under 2MB. The production build measures the real files
+ * (see validate.ts), so there is no size to type in here and keep in sync.
  */
 export interface Clip {
   webm: string;
@@ -52,8 +52,11 @@ export interface Clip {
   width: number;
   height: number;
   durationSec: number;
-  /** Combined WebM + MP4 weight, kilobytes. Budget check reads this. */
-  sizeKb: number;
+  /**
+   * WebVTT caption file per locale. The clips autoplay muted, so a talking
+   * clip without captions is a person moving their mouth in silence.
+   */
+  captions?: L10n;
   /**
    * What is said or shown. Rendered as visually-hidden text next to the video
    * so the content exists for screen readers and for crawlers, which never
@@ -72,30 +75,38 @@ export const DEFAULT_TAB: FeedTab = 'para-ti';
 
 /* -------------------------------------------------------------- call to action */
 
-export type CtaKind =
-  | 'whatsapp' // number comes from site config; `prefill` seeds the message
-  | 'tel'
-  | 'email'
-  | 'external' // `target` is an absolute URL
-  | 'card'; // `target` is another card's slug — scrolls the feed
-
-export interface Cta {
-  kind: CtaKind;
-  /** Required for 'external' (absolute URL) and 'card' (slug). Ignored otherwise. */
-  target?: string;
+interface CtaBase {
   label: L10n;
   /** Use when the visible label is short and the destination is not obvious. */
   ariaLabel?: L10n;
-  /** WhatsApp only: pre-typed message body. */
-  prefill?: L10n;
 }
+
+/**
+ * Each kind carries exactly the fields it uses, so a 'card' link without a
+ * target or a phone link with a WhatsApp message cannot be written.
+ */
+export type Cta =
+  /** Number comes from site config; `prefill` seeds the message. */
+  | (CtaBase & { kind: 'whatsapp'; prefill?: L10n })
+  /** Number comes from site config. */
+  | (CtaBase & { kind: 'tel' })
+  /** Address comes from site config. */
+  | (CtaBase & { kind: 'email' })
+  /** Absolute https:// URL. */
+  | (CtaBase & { kind: 'external'; href: string })
+  /** Another card's slug — scrolls the feed. */
+  | (CtaBase & { kind: 'card'; target: string });
+
+export type CtaKind = Cta['kind'];
 
 /* ---------------------------------------------------------------- card base */
 
 interface CardBase {
   /**
-   * URL fragment — this is a shareable link (/#el-break). Once a card has been
-   * shared, changing its slug breaks that link. Treat as permanent.
+   * The card's own page: /el-break/ and /en/el-break/ (the intro lives at /).
+   * Each card is pre-rendered at its path so a link shared on WhatsApp shows
+   * that card's title and image — link previews never see a #fragment.
+   * Once shared, changing a slug breaks the link. Treat as permanent.
    */
   slug: string;
   /** Which tabs include this card. 'para-ti' is the curated set, not "all". */
@@ -104,7 +115,7 @@ interface CardBase {
   order: number;
   /** The card's <h2>, and the <title> when someone deep-links to it. */
   heading: L10n;
-  /** Per-card share preview. Falls back to the site default when omitted. */
+  /** Per-card link preview (og:image / og:description on the card's page). Falls back to the site default. */
   share?: { image: string; description: L10n };
   /** Set false to keep a card in the repo but out of the build. */
   published?: boolean;
@@ -131,7 +142,10 @@ export interface Client {
   name: string;
   /** "Restaurante", "Panadería" — translated. */
   kind: L10n;
-  /** Municipio. This is what the `local` tab filters on. */
+  /**
+   * Municipio. The build checks that a project is in the `local` tab exactly
+   * when this city is in site.serviceArea, so the two can never disagree.
+   */
   city: string;
   owner?: {
     name: string;
@@ -160,11 +174,13 @@ export interface BeforeAfter {
  * CSP frame-ancestors cannot be embedded, and the failure is silent — the
  * iframe just stays blank. So the mode is declared here rather than detected,
  * and `framingCheckedOn` records when you last confirmed it.
+ *
+ * A live demo frames the project's `liveUrl`; there is no second URL to keep
+ * in sync.
  */
 export type Demo =
   | {
       mode: 'live';
-      url: string;
       /** Required: becomes the iframe's title attribute. */
       title: L10n;
       /** ISO date (YYYY-MM-DD) you last verified the site allows framing. */
@@ -195,7 +211,11 @@ export interface ProjectCard extends CardBase {
    * internet" — never "construido con Astro".
    */
   outcomes: L10n[];
-  /** Exactly one. Not a "mobile version" link and a "desktop version" link. */
+  /**
+   * Exactly one. Not a "mobile version" link and a "desktop version" link.
+   * Also what a live demo frames. Must be https — an http site inside an
+   * https page is blocked as mixed content and the demo renders blank.
+   */
   liveUrl: string;
   quote?: { text: L10n; attribution: string };
 }
@@ -247,19 +267,27 @@ export interface FormField {
   autocomplete?: string;
 }
 
+/**
+ * The secondary email channel. The site is static with no backend, so a real
+ * form needs a third-party endpoint (Formspree, Basin…). Until there is one,
+ * 'mailto' renders a plain "email me" link — and has no fields, because a form
+ * that cannot be submitted should not exist in the data.
+ */
+export type ContactForm =
+  | { mode: 'mailto' }
+  | {
+      mode: 'post';
+      /** Absolute https:// URL of the form service. */
+      endpoint: string;
+      fields: FormField[];
+      submitLabel: L10n;
+    };
+
 export interface ContactCard extends CardBase {
   type: 'contact';
   /** Rendered in order. WhatsApp goes first — it is the channel here. */
   primary: Cta[];
-  /**
-   * Secondary email form. The site is static with no backend, so this posts to
-   * a third-party endpoint; omit `endpoint` to render a mailto: link instead.
-   */
-  form?: {
-    endpoint?: string;
-    fields: FormField[];
-    submitLabel: L10n;
-  };
+  form?: ContactForm;
   hours?: L10n;
 }
 
@@ -284,7 +312,10 @@ export type CardType = Card['type'];
 /* -------------------------------------------------------------- site config */
 
 export interface SiteConfig {
-  /** Canonical origin, no trailing slash. Used for og:url, sitemap, hreflang. */
+  /**
+   * Canonical origin, https, no trailing slash. The single source: astro.config
+   * reads it for `site`, and og:url, the sitemap and hreflang derive from it.
+   */
   url: string;
   person: {
     name: string;
@@ -299,8 +330,12 @@ export interface SiteConfig {
   contact: {
     /** E.164 digits only, no + or spaces: "17875551234". Used to build wa.me. */
     whatsapp: string;
-    /** Display form: "(787) 555-1234". */
-    phone: string;
+    phone: {
+      /** Goes in the tel: link. With the +: "+17875551234". */
+      e164: string;
+      /** What people read: "(787) 555-1234". */
+      display: string;
+    };
     email: string;
   };
   /** Fallback Open Graph image for cards that define no `share`. */

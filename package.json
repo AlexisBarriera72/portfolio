@@ -3,11 +3,17 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro check && vitest run && astro build",
+    "build:draft": "astro check && vitest run && astro build --mode draft",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "check:launch": "vitest run --mode launch",
+    "test": "vitest run"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.0",
@@ -18,7 +24,8 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.5",
     "typescript": "^5.9.3",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "vitest": "^5.0.1"
   },
   "overrides": {
     "vite": "$vite"

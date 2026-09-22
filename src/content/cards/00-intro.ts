@@ -32,7 +32,6 @@ const card: IntroCard = {
     width: 1080,
     height: 1920,
     durationSec: 9,
-    sizeKb: 780,
     transcript: {
       es: [
         'Hola, soy Alexis. Hago páginas web para negocios pequeños en Puerto Rico.',

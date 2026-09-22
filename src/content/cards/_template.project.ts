@@ -4,8 +4,10 @@ import type { ProjectCard } from '../types';
  * COPY THIS FILE to add a client.
  *
  *   1. cp _template.project.ts 20-nombre-del-cliente.ts
- *   2. Fill every TODO. TypeScript will not let you skip a required field,
- *      and `npm run build` will not let you ship a duplicate slug.
+ *      The number in the file name must equal `order` below.
+ *   2. Fill every TODO. `npm run build` type-checks first (a missing field
+ *      fails), then refuses duplicate slugs, dead links, http:// URLs, and —
+ *      for the real production build — any leftover TODO or missing image.
  *   3. Drop the images in public/media/<slug>/. Nothing else to register.
  *
  * Files starting with _ are excluded from the feed, so this one never renders.
@@ -13,13 +15,16 @@ import type { ProjectCard } from '../types';
 const card: ProjectCard = {
   type: 'project',
 
-  /** Permanent — this becomes /#slug and people share it. Kebab-case. */
+  /** Permanent — this becomes /slug/ and people share it. Kebab-case. */
   slug: 'TODO-slug',
 
-  /** 'para-ti' is the curated reel, not "everything". 'local' = southern PR. */
+  /**
+   * 'para-ti' is the curated reel, not "everything". 'local' is required
+   * exactly when client.city is in site.serviceArea — the build checks it.
+   */
   tabs: ['para-ti', 'local'],
 
-  /** Gaps of 10 so you can slot a card between two others later. */
+  /** Gaps of 10 so you can slot a card between two others later. Must match the file name. */
   order: 20,
 
   heading: {
@@ -72,13 +77,13 @@ const card: ProjectCard = {
 
   /**
    * Check whether the site can be framed BEFORE choosing 'live':
-   *   curl -sI https://elsitio.com | grep -iE 'x-frame-options|content-security-policy'
+   *   curl -sI https://elsitio.com | grep -iE '^x-frame-options|frame-ancestors'
    * Any output means you need mode 'recorded' — a blocked iframe renders blank
-   * with no error you can catch in JS.
+   * with no error you can catch in JS. (Other CSP rules don't matter; only
+   * frame-ancestors controls framing.) A live demo frames `liveUrl` below.
    */
   demo: {
     mode: 'live',
-    url: 'https://TODO.com',
     title: {
       es: 'Sitio de TODO, en vivo',
       en: 'TODO’s live website',
@@ -96,7 +101,7 @@ const card: ProjectCard = {
     { es: 'TODO', en: 'TODO' },
   ],
 
-  /** ONE link. Not a mobile one and a desktop one. */
+  /** ONE link, https. Not a mobile one and a desktop one. The live demo frames it too. */
   liveUrl: 'https://TODO.com',
 
   // quote: {

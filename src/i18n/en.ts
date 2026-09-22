@@ -6,8 +6,8 @@ export const en: UIStrings = {
   metaDescription:
     'Websites for small businesses in Ponce and southern Puerto Rico. Clear prices, built for the phone, and someone local who actually answers.',
 
-  // The tab labels stay in Spanish on purpose — they are the section names the
-  // site is known by. TODO(alexis): translate them if you'd rather.
+  // Only the labels are translated. The keys — and so the ?tab= values in the
+  // URL — stay Spanish in both languages, so a shared link works in either.
   tabs: {
     'para-ti': 'For you',
     local: 'Local',
@@ -22,7 +22,7 @@ export const en: UIStrings = {
     next: 'Next',
     previous: 'Previous',
     backToTop: 'Back to the top',
-    position: (index, total) => `Card ${index} of ${total}`,
+    position: 'Card {index} of {total}',
     skipToContent: 'Skip to content',
     swipeHint: 'Swipe up',
   },

@@ -1,5 +1,10 @@
-import type { Card, FeedTab } from './types';
-import { FEED_TABS } from './types';
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import { localePath } from '../i18n';
+import { site } from './site';
+import type { Card, CardType, FeedTab, Locale } from './types';
+import { LOCALES } from './types';
+import { type CardEntry, validate } from './validate';
 
 /**
  * Every .ts file in ./cards/ that default-exports a Card is in the feed.
@@ -14,93 +19,97 @@ const modules = import.meta.glob<{ default: Card }>(['./cards/*.ts', '!./cards/_
   eager: true,
 });
 
-const all: Card[] = Object.entries(modules)
+/**
+ * The glob's type parameter is a promise, not a check — a file that forgets its
+ * `: ProjectCard` annotation would slip through `astro check`. This catches the
+ * most likely version of that mistake at runtime. The Record makes TypeScript
+ * fail here if a card type is added without being listed.
+ */
+const CARD_TYPES: Record<CardType, true> = {
+  intro: true,
+  project: true,
+  pricing: true,
+  inclusions: true,
+  about: true,
+  contact: true,
+  end: true,
+};
+
+const entries: CardEntry[] = Object.entries(modules)
   .map(([path, mod]) => {
-    if (!mod.default) throw new Error(`${path} has no default export`);
-    return mod.default;
+    const card: unknown = mod.default;
+    if (typeof card !== 'object' || card === null || !((card as Card).type in CARD_TYPES)) {
+      throw new Error(`${path} does not default-export a card`);
+    }
+    return { path, card: card as Card };
   })
-  .filter((card) => card.published !== false)
-  .sort((a, b) => a.order - b.order);
+  .filter(({ card }) => card.published !== false)
+  .sort((a, b) => a.card.order - b.card.order);
 
 /* ------------------------------------------------------------- build checks */
 
 /**
- * These run during `astro build`, so a bad card fails the build instead of
- * shipping a dead link. Everything here is a mistake TypeScript cannot catch:
- * duplicates, ordering, and references between cards.
+ * All problems in the real content. `strict` adds the launch checks
+ * (placeholders, missing media, clip sizes) — see validate.ts.
  */
-function validate(cards: Card[]): void {
-  const problems: string[] = [];
-  const slugs = new Set<string>();
+export function contentProblems(strict: boolean): string[] {
+  return validate(entries, site, { strict, fileSize: publicFileSize });
+}
 
-  for (const card of cards) {
-    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(card.slug)) {
-      problems.push(`slug "${card.slug}" must be kebab-case — it becomes a URL fragment`);
-    }
-    if (slugs.has(card.slug)) {
-      problems.push(`duplicate slug "${card.slug}" — two cards would answer the same link`);
-    }
-    slugs.add(card.slug);
-
-    if (card.tabs.length === 0) {
-      problems.push(`"${card.slug}" has no tabs, so no tab can ever show it`);
-    }
-    for (const tab of card.tabs) {
-      if (!FEED_TABS.includes(tab)) problems.push(`"${card.slug}" has unknown tab "${tab}"`);
-    }
-  }
-
-  // Internal CTA targets must point at a card that exists.
-  for (const card of cards) {
-    const ctas = [
-      ...('cta' in card && card.cta ? [card.cta] : []),
-      ...('primary' in card ? card.primary : []),
-    ];
-    for (const cta of ctas) {
-      if (cta.kind === 'card' && (!cta.target || !slugs.has(cta.target))) {
-        problems.push(`"${card.slug}" links to card "${cta.target}", which does not exist`);
-      }
-      if (cta.kind === 'external' && !cta.target?.startsWith('http')) {
-        problems.push(`"${card.slug}" has an external CTA with no absolute URL`);
-      }
-    }
-  }
-
-  const intros = cards.filter((c) => c.type === 'intro');
-  if (intros.length !== 1) problems.push(`expected exactly 1 intro card, found ${intros.length}`);
-  else if (cards[0]?.type !== 'intro') problems.push('the intro card must have the lowest order');
-
-  const ends = cards.filter((c) => c.type === 'end');
-  if (ends.length !== 1) problems.push(`expected exactly 1 end card, found ${ends.length}`);
-  else if (cards.at(-1)?.type !== 'end') problems.push('the end card must have the highest order');
-
-  for (const tab of FEED_TABS) {
-    if (!cards.some((c) => c.tabs.includes(tab))) {
-      problems.push(`tab "${tab}" would render an empty feed`);
-    }
-  }
-
-  if (problems.length > 0) {
-    throw new Error(`Content errors:\n  - ${problems.join('\n  - ')}`);
+/** Resolved from the project root: at build time this module runs from a bundled chunk, not from src/. */
+function publicFileSize(publicPath: string): number | undefined {
+  try {
+    return statSync(join(process.cwd(), 'public', publicPath)).size;
+  } catch {
+    return undefined;
   }
 }
 
-validate(all);
+/**
+ * Runs whenever a page imports this module, so a bad card fails the build
+ * instead of shipping a dead link. `npm run build` also refuses to ship
+ * placeholders or missing media; `npm run build:draft` (astro build --mode
+ * draft) skips only those launch checks while the real phone number and
+ * photos are still missing. `npm run dev` never runs them.
+ */
+const STRICT = import.meta.env.PROD && import.meta.env.MODE !== 'draft';
+const problems = contentProblems(STRICT);
+if (problems.length > 0) {
+  throw new Error(`Content errors:\n  - ${problems.join('\n  - ')}`);
+}
 
 /* ------------------------------------------------------------------ exports */
 
-export const cards = all;
+export const cards: Card[] = entries.map((e) => e.card);
 
 /** Cards in one tab, already ordered. */
 export function cardsForTab(tab: FeedTab): Card[] {
-  return all.filter((card) => card.tabs.includes(tab));
+  return cards.filter((card) => card.tabs.includes(tab));
 }
 
 export function getCard(slug: string): Card | undefined {
-  return all.find((card) => card.slug === slug);
+  return cards.find((card) => card.slug === slug);
+}
+
+/**
+ * A card's own page. Each card is pre-rendered at its own path so a shared
+ * link gets that card's title and preview image; the intro is the home page.
+ *   pathForCard(elBreak, 'es') → "/el-break/"
+ *   pathForCard(elBreak, 'en') → "/en/el-break/"
+ *   pathForCard(intro, 'en')   → "/en/"
+ */
+export function pathForCard(card: Card, locale: Locale): string {
+  return localePath(locale, card.type === 'intro' ? '/' : `/${card.slug}/`);
+}
+
+/** Every page to pre-render: one per card per locale. Feed this to getStaticPaths. */
+export function cardPages(): { locale: Locale; card: Card; path: string }[] {
+  return LOCALES.flatMap((locale) =>
+    cards.map((card) => ({ locale, card, path: pathForCard(card, locale) })),
+  );
 }
 
 /** Municipios that actually have a project, for the "Local" tab copy. */
 export const clientCities: string[] = [
-  ...new Set(all.flatMap((c) => (c.type === 'project' ? [c.client.city] : []))),
+  ...new Set(cards.flatMap((c) => (c.type === 'project' ? [c.client.city] : []))),
 ].sort();

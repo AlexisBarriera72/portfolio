@@ -8,7 +8,7 @@ import type { SiteConfig } from './types';
  * WhatsApp link, and a wrong number here is a lost customer.
  */
 export const site: SiteConfig = {
-  url: 'https://example.com', // TODO(alexis): your domain, no trailing slash
+  url: 'https://example.com', // TODO(alexis): your domain, no trailing slash — astro.config reads this
 
   person: {
     name: 'Alexis', // TODO(alexis): full name as you want clients to read it
@@ -48,7 +48,10 @@ export const site: SiteConfig = {
 
   contact: {
     whatsapp: '17875551234', // TODO(alexis): E.164 digits only — no +, no spaces
-    phone: '(787) 555-1234', // TODO(alexis)
+    phone: {
+      e164: '+17875551234', // TODO(alexis): + and digits — goes in the tel: link
+      display: '(787) 555-1234', // TODO(alexis): how people read it
+    },
     email: 'elnenealexis72@gmail.com',
   },
 

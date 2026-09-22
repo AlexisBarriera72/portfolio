@@ -50,7 +50,6 @@ const card: ProjectCard = {
 
   demo: {
     mode: 'live',
-    url: 'https://elbreak.example', // TODO(alexis): the real public URL
     title: {
       es: 'Sitio de El Break Food Truck, en vivo',
       en: 'El Break Food Truck’s live website',
@@ -73,7 +72,7 @@ const card: ProjectCard = {
     },
   ],
 
-  liveUrl: 'https://elbreak.example', // TODO(alexis): same URL as the demo
+  liveUrl: 'https://elbreak.example', // TODO(alexis): the real public URL — the live demo frames it too
 
   // quote: {
   //   text: { es: '…', en: '…' },

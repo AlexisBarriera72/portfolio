@@ -29,40 +29,23 @@ const card: ContactCard = {
     },
   ],
 
-  form: {
-    // No endpoint set → the component renders a mailto: link instead of a POST
-    // form. The site is static, so a working form needs a third-party endpoint.
-    // TODO(alexis): add a Formspree/Basin URL here if you want a real form.
-    fields: [
-      {
-        name: 'nombre',
-        type: 'text',
-        label: { es: 'Tu nombre', en: 'Your name' },
-        required: true,
-        autocomplete: 'name',
-      },
-      {
-        name: 'negocio',
-        type: 'text',
-        label: { es: 'Nombre del negocio', en: 'Business name' },
-        autocomplete: 'organization',
-      },
-      {
-        name: 'telefono',
-        type: 'tel',
-        label: { es: 'Teléfono', en: 'Phone' },
-        required: true,
-        autocomplete: 'tel',
-      },
-      {
-        name: 'mensaje',
-        type: 'textarea',
-        label: { es: '¿Qué necesitas?', en: 'What do you need?' },
-        required: true,
-      },
-    ],
-    submitLabel: { es: 'Enviar', en: 'Send' },
-  },
+  // The site is static, so a working form needs a third-party endpoint. Until
+  // there is one, this renders a plain "email me" link.
+  form: { mode: 'mailto' },
+  // TODO(alexis): to get a real form, sign up for Formspree/Basin and replace
+  // the line above with this:
+  //
+  // form: {
+  //   mode: 'post',
+  //   endpoint: 'https://formspree.io/f/…',
+  //   submitLabel: { es: 'Enviar', en: 'Send' },
+  //   fields: [
+  //     { name: 'nombre', type: 'text', label: { es: 'Tu nombre', en: 'Your name' }, required: true, autocomplete: 'name' },
+  //     { name: 'negocio', type: 'text', label: { es: 'Nombre del negocio', en: 'Business name' }, autocomplete: 'organization' },
+  //     { name: 'telefono', type: 'tel', label: { es: 'Teléfono', en: 'Phone' }, required: true, autocomplete: 'tel' },
+  //     { name: 'mensaje', type: 'textarea', label: { es: '¿Qué necesitas?', en: 'What do you need?' }, required: true },
+  //   ],
+  // },
 
   hours: {
     es: 'Contesto de lunes a sábado, de 9:00 a. m. a 7:00 p. m.',

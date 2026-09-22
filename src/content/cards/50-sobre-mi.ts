@@ -1,3 +1,4 @@
+import { site } from '../site';
 import type { AboutCard } from '../types';
 
 /** Short, personal, human. TODO(alexis): rewrite this in your own voice. */
@@ -12,15 +13,8 @@ const card: AboutCard = {
     en: 'Who you are talking to',
   },
 
-  portrait: {
-    src: '/media/alexis/retrato.webp',
-    alt: {
-      es: 'Alexis, sonriendo, sentado frente a una laptop en un café.',
-      en: 'Alexis, smiling, sitting in front of a laptop at a café.',
-    },
-    width: 800,
-    height: 1000,
-  },
+  // Same photo as site.person — one place to swap it.
+  portrait: site.person.portrait,
 
   body: {
     es: [
