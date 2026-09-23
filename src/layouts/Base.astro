@@ -47,7 +47,7 @@ const tabCss =
 ---
 
 <!doctype html>
-<html lang={ui.htmlLang} data-card={card?.slug} data-card-tabs={card?.tabs.join(' ')}>
+<html lang={ui.htmlLang} class:list={[{ 'feed-page': card }]} data-card={card?.slug} data-card-tabs={card?.tabs.join(' ')}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

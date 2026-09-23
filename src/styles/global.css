@@ -32,15 +32,8 @@
   color-scheme: light;
 }
 
-/* ---------------------------------------------------------------- scrolling
- * The page itself scrolls (not an inner box): the phone's address bar can
- * collapse for more room, lazy images load ahead of time, and Space/PageDown
- * work without clicking first. `proximity` rather than `mandatory` so a card
- * taller than the screen can be read to the end without being yanked back.
- */
+/* ---------------------------------------------------------------- scrolling */
 html {
-  scroll-snap-type: y proximity;
-  scroll-padding-top: var(--bar-h);
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -48,13 +41,7 @@ html {
   text-size-adjust: 100%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
-/* No scrolling behind an open demo dialog. */
+/* No scrolling behind an open dialog. */
 html:has(dialog[open]) {
   overflow: hidden;
 }
@@ -76,16 +63,74 @@ body {
 }
 
 /*
- * A card fills what is on screen right now (dvh, so it grows when the phone's
- * address bar slides away) minus the bar; vh first for older browsers. It may
- * grow taller — long copy, a short screen, enlarged text: proximity snapping
- * lets touch readers scroll through it, and the keys and desktop arrows read
- * through it before moving on (src/scripts/feed.ts).
+ * Feed pages: the document itself never scrolls. The page is exactly the
+ * visible viewport — the bar, then the feed filling the rest — and the feed
+ * list is the one scroller. It spans the full width (so the wheel works over
+ * the desktop margins too); the bar and the cards sit in the phone-wide column.
+ */
+html.feed-page,
+.feed-page body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* clip, where supported: not even a script can scroll the page itself. */
+  overflow: clip;
+  overscroll-behavior: none;
+}
+.feed-page .page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  background: transparent;
+}
+.feed-page main,
+.feed-page .feed-panel {
+  min-height: 0;
+  height: 100%;
+}
+.feed-page .topbar {
+  width: 100%;
+  max-width: var(--col-w);
+  margin-inline: auto;
+}
+
+/*
+ * The feed: one card at a time. `mandatory` snapping means that when a scroll
+ * or swipe ends, the list always comes to rest with exactly one card filling
+ * it — never halfway between two. The browser keeps its own physics.
+ */
+.feed {
+  /* Positioned, so absolutely placed things inside cards (screen-reader-only
+     text) stay inside the feed instead of stretching the page. */
+  position: relative;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feed {
+    scroll-behavior: smooth;
+  }
+}
+
+/*
+ * A card is exactly one panel: the feed's full height (border included), in
+ * the phone-wide column. Its content is designed to fit at normal text size
+ * (e2e "one screen per card"); if enlarged text makes it taller, the card's
+ * own box scrolls, so nothing is ever cut off.
  */
 .card {
   display: flex;
-  min-height: calc(100vh - var(--bar-h));
-  min-height: calc(100dvh - var(--bar-h));
+  height: 100%;
+  max-width: var(--col-w);
+  margin-inline: auto;
+  background: var(--color-paper);
   scroll-snap-align: start;
   scroll-snap-stop: always;
   border-bottom: 1px solid var(--color-line);
@@ -104,8 +149,13 @@ body {
   flex: 1;
   flex-direction: column;
   gap: 0.9rem;
-  /* Bottom room for the WhatsApp button: its height, its offset and a little air. */
-  padding: 1.25rem 1.25rem calc(var(--fab-room) + env(safe-area-inset-bottom));
+  min-width: 0;
+  /* Only ever scrolls with enlarged text or a phone on its side. */
+  overflow-y: auto;
+  /* Bottom room for the WhatsApp button: its height, its offset and a little
+     air, plus the phone's safe areas. */
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right))
+    calc(var(--fab-room) + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
   outline-offset: -3px;
 }
 
@@ -140,8 +190,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  height: var(--bar-h);
-  padding-inline: 0.5rem;
+  /* The bar's own height, plus the status bar area on a notched phone. */
+  height: calc(var(--bar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(0.5rem, env(safe-area-inset-right)) 0 max(0.5rem, env(safe-area-inset-left));
   background: rgb(255 255 255 / 0.94);
   border-bottom: 1px solid var(--color-line);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -1074,10 +1125,10 @@ html:not([data-tab]) .tabs {
     --fab-room: 0.5rem;
   }
   .topbar {
-    padding-right: calc(1rem + var(--fab-size));
+    padding-right: calc(1rem + var(--fab-size) + env(safe-area-inset-right));
   }
   .fab {
-    top: calc((var(--bar-h) - var(--fab-size)) / 2);
+    top: calc(env(safe-area-inset-top) + (var(--bar-h) - var(--fab-size)) / 2);
     bottom: auto;
     right: max(0.5rem, calc((100vw - var(--col-w)) / 2 + 0.5rem));
     z-index: 25;
@@ -1141,6 +1192,14 @@ html:not([data-tab]) .tabs {
     box-shadow:
       0 0 0 1px var(--color-line),
       0 40px 90px -30px rgb(15 23 42 / 0.3);
+  }
+  /* On feed pages the column is the bar and the cards (the page is full width). */
+  .feed-page .page {
+    box-shadow: none;
+  }
+  .feed-page .topbar,
+  .feed-page .card {
+    box-shadow: 0 0 0 1px var(--color-line);
   }
   .feed-arrows {
     position: fixed;

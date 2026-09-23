@@ -1,17 +1,26 @@
 /**
- * The feed's behaviour. The markup and CSS already work without this; the
- * script adds:
- *  - the active card: the one under the middle of the screen below the bar.
- *    Its page path goes into the address bar (replaceState — scrolling never
- *    adds history entries), its title into the tab, and the language link
- *    follows it;
+ * The feed's behaviour. The markup and CSS already work without this.
+ *
+ * Scrolling: the feed list (`.feed`) is the page's only scroller. Every card
+ * is exactly as tall as the list, and the list snaps to one card at a time
+ * (`scroll-snap-type: y mandatory`). Nothing here intercepts touch or the
+ * wheel — the browser keeps its own physics; it only has to come to rest on a
+ * card. A card whose content is taller than its panel (enlarged text, a phone
+ * on its side) scrolls inside itself; at normal text size none does.
+ *
+ * The script adds:
+ *  - the active card: the one under the middle of the feed. Its page path
+ *    goes into the address bar (replaceState — scrolling never adds history
+ *    entries), its title into the tab, and the language link follows it;
  *  - video: only the active card and its neighbours fetch their clip, and only
  *    the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
- *  - keyboard: ↑/↓ and PageUp/PageDown read through a card taller than the
- *    screen before moving to the next one; Home/End jump to the ends;
+ *  - keyboard: ↑/↓, PageUp/PageDown and Space read through a card that
+ *    scrolls inside itself before moving to the next one; Home/End jump to
+ *    the ends;
  *  - the desktop arrows (like PageUp/PageDown), card-to-card links, and
- *    "start over".
+ *    "start over";
+ *  - after a resize (rotation, a toolbar), the same card stays on screen.
  */
 import { DEFAULT_TAB, FEED_TABS, type FeedTab } from '../data/types';
 import { format } from '../i18n/format';
@@ -30,7 +39,6 @@ function init(feed: HTMLElement): void {
   const status = document.querySelector<HTMLElement>('[data-feed-status]');
   const prev = document.querySelector<HTMLButtonElement>('[data-feed-prev]');
   const next = document.querySelector<HTMLButtonElement>('[data-feed-next]');
-  const bar = document.querySelector<HTMLElement>('.topbar');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let active: HTMLLIElement | undefined;
@@ -51,33 +59,30 @@ function init(feed: HTMLElement): void {
 
   const tabSearch = (tab: FeedTab) => (tab === DEFAULT_TAB ? '' : `?tab=${tab}`);
 
-  /** The part of the screen cards show in: from under the sticky bar to the bottom. */
-  const visibleArea = () => ({
-    top: bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0,
-    bottom: window.innerHeight,
-  });
-
   const behavior = (smooth: boolean): ScrollBehavior => (smooth && !reducedMotion.matches ? 'smooth' : 'instant');
 
+  /** A card's own content box — it scrolls only when its content is taller than the card. */
+  const bodyOf = (card: HTMLElement) => card.querySelector<HTMLElement>('.card-body')!;
+
+  /** The feed's scroll position that puts `card` exactly in it. */
+  const positionOf = (card: HTMLElement) =>
+    feed.scrollTop + card.getBoundingClientRect().top - feed.getBoundingClientRect().top;
+
   /**
-   * Bring a card on screen. `end` (arriving from below) shows the end of a
-   * card taller than the screen, so reading upwards skips nothing; a card
-   * that fits is always shown from its top.
+   * Bring a card into the feed. `end` (arriving from below) also shows the end
+   * of a card whose content scrolls inside it, so reading upwards skips
+   * nothing; otherwise the card is shown from its start.
    */
   const scrollToCard = (card: HTMLElement, smooth: boolean, edge: 'start' | 'end' = 'start') => {
-    const rect = card.getBoundingClientRect();
-    const { top, bottom } = visibleArea();
-    if (edge === 'end' && rect.height > bottom - top) {
-      window.scrollTo({ top: window.scrollY + rect.bottom - bottom, behavior: behavior(smooth) });
-    } else {
-      card.scrollIntoView({ block: 'start', behavior: behavior(smooth) });
-    }
+    const body = bodyOf(card);
+    body.scrollTop = edge === 'end' ? body.scrollHeight : 0;
+    feed.scrollTo({ top: positionOf(card), behavior: behavior(smooth) });
   };
 
   /** Move to a card on purpose (keys, arrows, links): focus it and say where we are. */
   const goTo = (card: HTMLElement, edge: 'start' | 'end' = 'start') => {
     scrollToCard(card, true, edge);
-    card.querySelector<HTMLElement>('article')?.focus({ preventScroll: true });
+    bodyOf(card).focus({ preventScroll: true });
     const list = visibleCards();
     const heading = card.querySelector('h2')?.textContent?.trim() ?? '';
     if (status) {
@@ -85,22 +90,23 @@ function init(feed: HTMLElement): void {
     }
   };
 
-  /** Slack, in px, for rounding when asking whether a card's edge is on screen. */
+  /** Slack, in px, for rounding when asking whether an edge is on screen. */
   const EDGE = 2;
 
   const CONTROLS = 'a[href], button, input, select, textarea, summary';
 
   /**
-   * How far one press scrolls: a quarter of the visible height (`line`) or
-   * 90% of it (`page`). A page step stops short where it would cut a control
-   * in two — it brings that control's top edge (or bottom, going up) to the
-   * edge of the screen instead — so no control is skipped half-seen.
+   * How far one press scrolls inside a card: a quarter of its height (`line`)
+   * or 90% of it (`page`). A page step stops short where it would cut a
+   * control in two — it brings that control's top edge (or bottom, going up)
+   * to the edge instead — so no control is skipped half-seen.
    */
-  const stepSize = (card: HTMLElement, top: number, bottom: number, direction: 1 | -1, size: 'line' | 'page') => {
+  const stepSize = (body: HTMLElement, direction: 1 | -1, size: 'line' | 'page') => {
+    const { top, bottom } = body.getBoundingClientRect();
     const height = bottom - top;
     if (size === 'line') return height * 0.25;
     let amount = height * 0.9;
-    for (const el of card.querySelectorAll<HTMLElement>(CONTROLS)) {
+    for (const el of body.querySelectorAll<HTMLElement>(CONTROLS)) {
       if (el.closest('dialog')) continue;
       const r = el.getBoundingClientRect();
       if (r.height === 0 || r.height > height) continue;
@@ -111,22 +117,21 @@ function init(feed: HTMLElement): void {
   };
 
   /**
-   * One press of ↑/↓ (`line`: a quarter screen), PageUp/PageDown or a desktop
-   * arrow (`page`: a screen, less a little overlap). While the current card
-   * still has content off screen in that direction, scroll through it —
-   * never past its edge. Only once its edge is on screen, move to the next
-   * card. Nothing is announced until the card changes.
+   * One press of ↑/↓ (`line`), PageUp/PageDown, Space or a desktop arrow
+   * (`page`). If the current card scrolls inside itself and has more in that
+   * direction, scroll through it — never past its end. Otherwise move the
+   * feed to the next card. Nothing is announced until the card changes.
    */
   const move = (direction: 1 | -1, size: 'line' | 'page') => {
     const list = visibleCards();
     const card = active && list.includes(active) ? active : undefined;
     if (card) {
-      const { top, bottom } = visibleArea();
-      const rect = card.getBoundingClientRect();
-      const offScreen = direction > 0 ? rect.bottom - bottom : top - rect.top;
-      if (offScreen > EDGE) {
-        const amount = stepSize(card, top, bottom, direction, size);
-        window.scrollTo({ top: window.scrollY + direction * Math.min(amount, offScreen), behavior: behavior(true) });
+      const body = bodyOf(card);
+      const room = body.scrollHeight - body.clientHeight;
+      const left = direction > 0 ? room - body.scrollTop : body.scrollTop;
+      if (room > EDGE && left > EDGE) {
+        const amount = Math.min(stepSize(body, direction, size), left);
+        body.scrollTo({ top: body.scrollTop + direction * amount, behavior: behavior(true) });
         return;
       }
     }
@@ -135,17 +140,18 @@ function init(feed: HTMLElement): void {
     if (target) goTo(target, direction > 0 ? 'start' : 'end');
   };
 
-  /** The desktop arrows are off only at the very ends: first/last card, with its edge on screen. */
+  /** The desktop arrows are off only at the very ends: first/last card, read to its edge. */
   const updateArrows = () => {
     const list = visibleCards();
     const i = active ? list.indexOf(active) : 0;
-    const rect = active?.getBoundingClientRect();
-    const { top, bottom } = visibleArea();
-    if (prev) prev.disabled = i <= 0 && (!rect || rect.top >= top - EDGE);
-    if (next) next.disabled = i >= list.length - 1 && (!rect || rect.bottom <= bottom + EDGE);
+    const body = active ? bodyOf(active) : undefined;
+    const atStart = !body || body.scrollTop <= EDGE;
+    const atEnd = !body || body.scrollTop >= body.scrollHeight - body.clientHeight - EDGE;
+    if (prev) prev.disabled = i <= 0 && atStart;
+    if (next) next.disabled = i >= list.length - 1 && atEnd;
   };
-  // Where supported, also after reading through the first or last card.
-  window.addEventListener('scrollend', updateArrows);
+  // `scrollend` doesn't bubble: listen in the capture phase for the feed and the cards.
+  document.addEventListener('scrollend', updateArrows, true);
 
   /* ------------------------------------------------------- active card */
 
@@ -174,11 +180,8 @@ function init(feed: HTMLElement): void {
     }
   };
 
-  /** The reading line: halfway down the part of the screen below the bar. */
-  const readingLine = () => {
-    const { top, bottom } = visibleArea();
-    return top + (bottom - top) / 2;
-  };
+  /** The reading line: halfway down the feed. */
+  const readingLine = () => feed.getBoundingClientRect().top + feed.clientHeight / 2;
 
   /**
    * The active card is the one under the reading line — a single answer,
@@ -203,31 +206,30 @@ function init(feed: HTMLElement): void {
     if (card) activate(card);
   };
 
-  // The observer only says when to check. Its root is shrunk, in pixels
-  // measured from the real bar and screen, to a 1px band on the reading line
-  // (a percentage margin would measure from the top of the screen, bar
-  // included, and sit off-centre — badly so in landscape). Rebuilt when the
-  // screen changes size: rotation, the address bar, the on-screen keyboard.
+  // The observer only says when to check. Its root is the feed, shrunk to a
+  // 1px band on the reading line, in pixels from the feed's real height.
   let observer: IntersectionObserver | undefined;
   const observe = () => {
     observer?.disconnect();
-    const line = Math.floor(readingLine());
-    const below = Math.max(0, window.innerHeight - line - 1);
-    observer = new IntersectionObserver(check, { rootMargin: `${-line}px 0px ${-below}px 0px` });
+    const above = Math.floor(feed.clientHeight / 2);
+    const below = Math.max(0, feed.clientHeight - above - 1);
+    observer = new IntersectionObserver(check, { root: feed, rootMargin: `${-above}px 0px ${-below}px 0px` });
     for (const card of cards) observer.observe(card);
   };
   observe();
 
-  let resizing: number | undefined;
-  const onResize = () => {
-    window.clearTimeout(resizing);
-    resizing = window.setTimeout(() => {
-      observe();
-      check();
-    }, 100);
-  };
-  window.addEventListener('resize', onResize);
-  window.visualViewport?.addEventListener('resize', onResize);
+  // A resize (rotation, a toolbar, the on-screen keyboard) changes every
+  // card's height. Keep the same card on screen — put it back exactly, rather
+  // than trust the browser's re-snap to pick the same one — and rebuild the
+  // observer's band for the new height.
+  let lastHeight = feed.clientHeight;
+  new ResizeObserver(() => {
+    if (feed.clientHeight === lastHeight) return;
+    lastHeight = feed.clientHeight;
+    observe();
+    if (active && inTab(active)) feed.scrollTo({ top: positionOf(active), behavior: 'instant' });
+    check();
+  }).observe(feed);
 
   /* ---------------------------------------------------------------- tabs */
 
@@ -250,7 +252,8 @@ function init(feed: HTMLElement): void {
     showTab(tab);
     history.pushState({ tab }, '', `${first.dataset.path}${tabSearch(tab)}`);
     active = undefined;
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    bodyOf(first).scrollTop = 0;
+    feed.scrollTo({ top: 0, behavior: 'instant' });
     activate(first);
   };
 
@@ -292,7 +295,8 @@ function init(feed: HTMLElement): void {
 
   /* ----------------------------------------------------------- keyboard */
 
-  const KEYS: Record<string, [1 | -1, 'line' | 'page'] | 'first' | 'last'> = {
+  type Step = [1 | -1, 'line' | 'page'] | 'first' | 'last';
+  const KEYS: Record<string, Step> = {
     ArrowDown: [1, 'line'],
     PageDown: [1, 'page'],
     ArrowUp: [-1, 'line'],
@@ -302,17 +306,23 @@ function init(feed: HTMLElement): void {
   };
 
   document.addEventListener('keydown', (e) => {
-    const key = KEYS[e.key];
-    if (key === undefined || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
     // Leave keys alone where they already mean something: typing, the
-    // before/after slider, the tab row, the demo dialog, an embedded site.
+    // before/after slider, the tab row, a dialog, an embedded site.
     const target = e.target as HTMLElement;
     if (target.closest('input, textarea, select, [contenteditable], iframe, [role="tablist"], dialog')) return;
+    let step: Step | undefined = e.shiftKey ? undefined : KEYS[e.key];
+    if (e.key === ' ') {
+      // Space pages down (Shift+Space up), except where Space presses something.
+      if (target.closest('a[href], button, summary, [role="button"]')) return;
+      step = [e.shiftKey ? -1 : 1, 'page'];
+    }
+    if (step === undefined) return;
     e.preventDefault();
     const list = visibleCards();
-    if (key === 'first') goTo(list[0]!);
-    else if (key === 'last') goTo(list[list.length - 1]!);
-    else move(...key);
+    if (step === 'first') goTo(list[0]!);
+    else if (step === 'last') goTo(list[list.length - 1]!);
+    else move(...step);
   });
 
   prev?.addEventListener('click', () => move(-1, 'page'));

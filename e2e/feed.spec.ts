@@ -1,6 +1,24 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import {
+  PARA_TI,
+  PARA_TI_PATHS,
+  atBottom,
+  atTop,
+  disableSnapping,
+  enlargeText,
+  expectAligned,
+  installFeedHelpers,
+  panelHeight,
+  placeCardTop,
+  readThrough,
+  scrollToVeryEnd,
+  settle,
+  tagControls,
+  visibleSlugs,
+  withRealIntroMedia,
+} from './helpers';
 
 /**
  * Behaviour of the built feed, against a draft build. Every test is guarded
@@ -10,41 +28,9 @@ import { expect, test } from './fixtures';
 
 const LIVE_DEMO = 'https://elbreak.example';
 
-/** The "Para ti" feed, in order. */
-const PARA_TI = [
-  'inicio',
-  'el-break',
-  'consejeria-escolar',
-  'melanie-creations',
-  'precios',
-  'que-incluye',
-  'que-mas-incluye',
-  'sobre-mi',
-  'contacto',
-  'fin',
-];
-
-const visibleSlugs = (page: Page) =>
-  page.locator('.feed > .card').evaluateAll((cards) =>
-    cards.filter((c) => getComputedStyle(c).display !== 'none').map((c) => c.id),
-  );
-
-/** Distance from the card's top to just under the sticky bar — ~0 means "this card is on screen". */
-const offsetFromBar = (page: Page, slug: string) =>
-  page.evaluate((id) => {
-    const bar = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-    return Math.round(document.getElementById(id)!.getBoundingClientRect().top - bar);
-  }, slug);
-
-/** Serve a real WebM and caption file in place of the intro media the draft doesn't have yet. */
-async function withRealIntroMedia(page: Page) {
-  await page.route('**/media/intro/saludo.webm', (route) =>
-    route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' }),
-  );
-  await page.route('**/media/intro/saludo.*.vtt', (route) =>
-    route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' }),
-  );
-}
+test.beforeEach(async ({ page }) => {
+  await installFeedHelpers(page);
+});
 
 const introVideo = (page: Page) => page.locator('#inicio video');
 
@@ -60,7 +46,7 @@ test.describe('feed', () => {
   test('a card page opens on its card', async ({ page }) => {
     await page.goto('/el-break/');
     await expect(page).toHaveTitle(/^El Break Food Truck · /);
-    await expect.poll(() => offsetFromBar(page, 'el-break')).toBeLessThanOrEqual(2);
+    await expectAligned(page, 'el-break');
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', /\/el-break\/$/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/$/);
   });
@@ -88,98 +74,19 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.locator('#inicio').getByRole('link', { name: 'Ver precios' }).click();
     await expect(page).toHaveURL(/\/precios\/$/);
-    await expect.poll(() => offsetFromBar(page, 'precios')).toBeLessThanOrEqual(2);
+    await expectAligned(page, 'precios');
   });
 });
 
-/** Resolves once the page has stopped scrolling (and the observer has had a frame to react). */
-const settle = (page: Page) =>
-  page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        let last = scrollY;
-        let still = 0;
-        const tick = () => {
-          still = scrollY === last ? still + 1 : 0;
-          last = scrollY;
-          if (still >= 6) resolve();
-          else requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }),
-  );
-
-/** Tag every control in the shown cards (outside dialogs and closed disclosures) with data-reach. */
-const tagControls = (page: Page) =>
-  page.evaluate(() => {
-    let n = 0;
-    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
-      if (getComputedStyle(card).display === 'none') continue;
-      const controls = card.querySelectorAll<HTMLElement>(
-        'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
-      );
-      for (const el of controls) {
-        // The card's own <article> is focusable too, but it is the card, not a control in it.
-        if (el.matches('.card-body') || el.closest('dialog') || !el.checkVisibility()) continue;
-        el.dataset.reach = `${card.id}: ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)} #${n++}`;
-      }
-    }
-    return n;
-  });
-
-/** The tagged controls that are wholly on screen, below the sticky bar. */
-const fullyOnScreen = (page: Page) =>
-  page.evaluate(() => {
-    const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-    return [...document.querySelectorAll<HTMLElement>('[data-reach]')]
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.height > 0 && r.top >= top - 1 && r.bottom <= innerHeight + 1;
-      })
-      .map((el) => el.dataset.reach!);
-  });
-
-/**
- * Press `key` (or click `button`) until `done`, and record what came on
- * screen. Returns the controls never seen, the order cards became active in,
- * and every announcement made while the card did NOT change (should be none).
- */
-async function readThrough(page: Page, press: () => Promise<void>, done: () => Promise<boolean>) {
-  const all = new Set<string>();
-  const seen = new Set<string>();
-  for (const id of await page.locator('[data-reach]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.reach!))) all.add(id);
-  for (const id of await fullyOnScreen(page)) seen.add(id);
-  const path = [new URL(page.url()).pathname];
-  const strayAnnouncements: string[] = [];
-  const status = page.locator('[data-feed-status]');
-  for (let i = 0; i < 400 && !(await done()); i++) {
-    const before = await status.textContent();
-    await press();
-    await settle(page);
-    for (const id of await fullyOnScreen(page)) seen.add(id);
-    const now = new URL(page.url()).pathname;
-    if (now !== path.at(-1)) path.push(now);
-    else if ((await status.textContent()) !== before) strayAnnouncements.push((await status.textContent()) ?? '');
-  }
-  return { unseen: [...all].filter((id) => !seen.has(id)), path, strayAnnouncements };
-}
-
-/** Like a larger default font in the browser's settings. (Via the CSSOM: the CSP rightly blocks a <style> tag.) */
-const enlargeText = (page: Page, size: string) =>
-  page.evaluate((s) => {
-    document.documentElement.style.fontSize = s;
-  }, size);
-
-const PARA_TI_PATHS = PARA_TI.map((slug) => (slug === 'inicio' ? '/' : `/${slug}/`));
-const atBottom = (page: Page) => page.evaluate(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 1);
-const atTop = (page: Page) => page.evaluate(() => scrollY <= 0);
-
 test.describe('keyboard reading', () => {
-  // Short screens and enlarged text make cards taller than the screen.
+  // At normal text size every card fits, so the keys move card by card; with
+  // enlarged text or a phone on its side a card scrolls inside itself, and
+  // the keys read through it before moving on.
   for (const { name, viewport, text } of [
     { name: 'a 390×844 phone', viewport: { width: 390, height: 844 }, text: '100%' },
     { name: 'a 360×640 phone', viewport: { width: 360, height: 640 }, text: '100%' },
     { name: 'a 360×640 phone with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+    { name: 'a phone on its side, 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
   ]) {
     test.describe(name, () => {
       test.beforeEach(async ({ page }) => {
@@ -202,7 +109,7 @@ test.describe('keyboard reading', () => {
       test('PageUp reads back up the same way', async ({ page }) => {
         await page.keyboard.press('End');
         await settle(page);
-        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await scrollToVeryEnd(page);
         await settle(page);
         const run = await readThrough(page, () => page.keyboard.press('PageUp'), () => atTop(page));
         expect(run.unseen).toEqual([]);
@@ -224,7 +131,7 @@ test.describe('keyboard reading', () => {
     await enlargeText(page, '150%');
     await settle(page);
     const whatsapp = page.locator('#precios .card-body > a.btn-whatsapp');
-    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
+    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > window.__feedView().bottom)).toBe(true);
     let shown = false;
     for (let i = 0; i < 20 && new URL(page.url()).pathname === '/precios/'; i++) {
       await page.keyboard.press('PageDown');
@@ -232,24 +139,14 @@ test.describe('keyboard reading', () => {
       if (new URL(page.url()).pathname !== '/precios/') break;
       shown ||= await whatsapp.evaluate((el) => {
         const r = el.getBoundingClientRect();
-        return r.top >= document.querySelector('.topbar')!.getBoundingClientRect().bottom && r.bottom <= innerHeight;
+        const view = window.__feedView();
+        return r.top >= view.top && r.bottom <= view.bottom;
       });
     }
     expect(shown).toBe(true);
     await expect(page).toHaveURL(/\/que-incluye\/$/);
   });
 });
-
-/** Scroll so the top of card `id` sits at `at` (0–1) of the way down the visible area. */
-const placeCardTop = (page: Page, id: string, at: number) =>
-  page.evaluate(
-    ([id, at]) => {
-      const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-      const target = top + (innerHeight - top) * at;
-      window.scrollBy({ top: document.getElementById(id)!.getBoundingClientRect().top - target, behavior: 'instant' });
-    },
-    [id, at] as const,
-  );
 
 test.describe('active card', () => {
   test.beforeEach(async ({ page }) => {
@@ -258,7 +155,7 @@ test.describe('active card', () => {
 
   /**
    * Partial scrolls with a card boundary just above and just below the middle
-   * of the visible area, coming from both directions. Snapping is turned off
+   * of the feed, coming from both directions. Snapping is turned off
    * so each position holds exactly; the active card must be the one under
    * the middle. `from` is the card above the boundary, `to` the one below.
    */
@@ -281,7 +178,7 @@ test.describe('active card', () => {
       await page.setViewportSize(viewport);
       await page.goto('/');
       await enlargeText(page, text);
-      await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+      await disableSnapping(page);
       await sweep(page, 'el-break', 'consejeria-escolar');
       await sweep(page, 'precios', 'que-incluye');
     });
@@ -290,20 +187,12 @@ test.describe('active card', () => {
   test('follows the screen when it rotates', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+    await disableSnapping(page);
     await sweep(page, 'el-break', 'consejeria-escolar');
     await page.setViewportSize({ width: 844, height: 390 });
     await sweep(page, 'precios', 'que-incluye');
   });
 });
-
-/** The height a card gets: the feed's box if the feed scrolls, else the window below the bar. */
-const panelHeight = (page: Page) =>
-  page.evaluate(() => {
-    const feed = document.querySelector<HTMLElement>('.feed')!;
-    if (feed.scrollHeight > feed.clientHeight + 1 && getComputedStyle(feed).overflowY !== 'visible') return feed.clientHeight;
-    return innerHeight - document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-  });
 
 test.describe('one screen per card', () => {
   // A card must fit its panel at normal text size — no scrolling inside it.
