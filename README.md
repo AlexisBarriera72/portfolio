@@ -15,6 +15,7 @@ Cloudflare.
 | `npm run check:launch` | Lists everything that still has to be real before launch.                                        |
 | `npm test`             | Unit tests (content rules, links, SEO, security headers).                                        |
 | `npm run test:e2e`     | Browser tests on phone and desktop sizes (build first).                                          |
+| `npm run capture`      | Screenshots a site at phone, tablet and desktop size for its project card (see below).          |
 
 ## Adding a project
 
@@ -23,13 +24,22 @@ Cloudflare.
    file name must equal `order` inside it (gaps of 10 leave room to insert).
 2. Fill every `TODO`. Write outcomes the owner would say to a friend
    ("Ahora toma órdenes por internet"), never tech words.
-3. Put the images in `src/assets/media/<slug>/` — the before and after
-   screenshots **at the same size** (e.g. two phone screenshots), and the
-   owner photo only with their permission. Put any video in
-   `public/media/<slug>/` (WebM + MP4, under 2 MB each).
+3. Take the screenshots of the new site:
+   `npm run capture -- https://their-site.com <slug>`
+   It saves `phone.webp`, `tablet.webp` and `desktop.webp` in
+   `src/assets/media/<slug>/`; `phone.webp` is the card's "after" picture.
+   Add `--click "Aceptar"` to get past a welcome screen or cookie banner,
+   and `--wait 4000` for slow pages. (First time only:
+   `npx playwright install chromium`.)
+   If they had an old site, add its screenshot as the "before" — **same size**
+   as the "after". If they had none, leave `before` out and say what they
+   had in `note` ("Antes solo tenía Instagram"). An owner photo only with
+   their permission. Any video goes in `public/media/<slug>/` (WebM + MP4,
+   under 2 MB each).
 4. Check framing before choosing a live demo:
    `curl -sI https://their-site.com | grep -iE '^x-frame-options|frame-ancestors'`
-   Any output → use `mode: 'recorded'` with a short screen recording.
+   Any output → the site can't be shown live; use `mode: 'screenshots'` with
+   the three captures from step 3.
 5. `npm run dev` and look at it on your phone.
 
 There is nothing to register: every file in `src/data/cards/` is in the feed.
@@ -52,8 +62,7 @@ Also worth doing:
 
 - Use an email on your own domain instead of a personal Gmail address — it
   is published on the site (and this repository is public).
-- Two or three more projects: the feed is strongest with 8–12 cards, and the
-  "Local" tab currently has one.
+- One or two more projects: the feed is strongest with 8–12 cards.
 - "Qué incluye, en cristiano" — keep it if it sounds like you; "sin enredos"
   is an alternative.
 
