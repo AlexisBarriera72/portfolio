@@ -69,6 +69,28 @@ Also worth doing:
 - "Qué incluye, en cristiano" — keep it if it sounds like you; "sin enredos"
   is an alternative.
 
+## Test on a real phone
+
+The browser tests prove a lot, but not how swiping feels under a finger or
+what a real browser toolbar does. Before launch, and after any change to the
+feed, open the preview on an **iPhone (Safari)** and an **Android phone
+(Chrome)** and check:
+
+- [ ] A short swipe, a slow drag released halfway, and a fast flick: every
+      time, the feed comes to rest with one whole card on screen — never two
+      halves.
+- [ ] Swipe down and back up; swipe and change direction before letting go.
+- [ ] Start a swipe on the before/after picture: up/down moves the feed,
+      sideways moves the slider.
+- [ ] Switch tabs, then swipe.
+- [ ] Turn the phone sideways and back: the same card stays on screen.
+- [ ] Pull the page down at the top and up at the bottom: the browser's
+      toolbar and the bar at the top stay put, and the card stays whole.
+- [ ] With the phone's text size set large: a card whose text doesn't fit
+      scrolls inside itself, you can reach its last button, and keep swiping
+      to the next card (and back).
+- [ ] Open "Qué incluye" on a plan, close it, and keep swiping.
+
 ## Deploying to Cloudflare
 
 Why Cloudflare rather than Vercel: Vercel's free plan is for non-commercial
