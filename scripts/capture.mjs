@@ -5,13 +5,16 @@
  *   npm run capture -- https://elsitio.com el-slug
  *   npm run capture -- https://elsitio.com/menu/ el-slug --wait 3000
  *   npm run capture -- https://elsitio.com el-slug --click "Aceptar"
+ *   npm run capture -- https://elsitio.com el-slug --time 2026-09-23T12:00:00-04:00
  *
  * Writes src/assets/media/<slug>/phone.webp, tablet.webp and desktop.webp.
  * phone.webp doubles as the card's "after" image. Captures are taken with
  * reduced motion on, so nothing is caught mid-animation; --wait adds time
  * for slow pages (3D, big images) after the network goes quiet; --click
  * presses a button or link by its text first (a cookie banner, a welcome
- * screen) so the capture shows the page itself.
+ * screen) so the capture shows the page itself; --time sets the page's clock,
+ * for a site that shows what it shows at a given moment (an "open now"
+ * badge, today's hours) — capture it as it looks while the business is open.
  *
  * Needs Chromium: `npx playwright install chromium` once, or point
  * PW_CHROMIUM at an installed one.
@@ -35,11 +38,12 @@ const option = (name) => {
 };
 const extraWait = Number(option('--wait') ?? 1500);
 const click = option('--click');
+const time = option('--time');
 const [url, slug] = args;
 
 if (!url || !slug || !/^https?:\/\//.test(url) || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
   console.error(
-    'Usage: npm run capture -- <url> <slug> [--wait ms] [--click "button text"]\n' +
+    'Usage: npm run capture -- <url> <slug> [--wait ms] [--click "button text"] [--time ISO-date]\n' +
       '  e.g. npm run capture -- https://elsitio.com panaderia-rosa',
   );
   process.exit(1);
@@ -59,6 +63,7 @@ try {
       reducedMotion: 'reduce',
     });
     const page = await context.newPage();
+    if (time) await page.clock.setFixedTime(new Date(time));
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
     if (click) {
       await page.getByRole('button', { name: click }).or(page.getByRole('link', { name: click })).first().click();

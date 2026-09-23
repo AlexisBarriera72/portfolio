@@ -26,7 +26,7 @@ import {
  * exact files the draft declares missing in /draft-missing.json.
  */
 
-const LIVE_DEMO = 'https://elbreak.example';
+const LIVE_DEMO = 'https://consejeria-escolar.vercel.app';
 
 test.beforeEach(async ({ page }) => {
   await installFeedHelpers(page);
@@ -190,6 +190,8 @@ test.describe('active card', () => {
     await disableSnapping(page);
     await sweep(page, 'el-break', 'consejeria-escolar');
     await page.setViewportSize({ width: 844, height: 390 });
+    // Let the feed react to the new size (it puts the current card back) before scrolling.
+    await settle(page);
     await sweep(page, 'precios', 'que-incluye');
   });
 });
@@ -533,12 +535,12 @@ test.describe('project card', () => {
     await page.route(`${LIVE_DEMO}/**`, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>demo</title><p>live site</p>' }),
     );
-    await page.goto('/el-break/');
-    const iframe = page.locator('#demo-el-break iframe');
+    await page.goto('/consejeria-escolar/');
+    const iframe = page.locator('#demo-consejeria-escolar iframe');
     await expect(iframe).not.toHaveAttribute('src', /.*/);
 
-    await page.getByRole('button', { name: /Probar el sitio de El Break/ }).click();
-    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck' });
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Consejería Escolar' });
     await expect(dialog).toBeVisible();
     await expect(iframe).toHaveAttribute('src', LIVE_DEMO);
     await expect(iframe).toHaveAttribute('sandbox', /allow-scripts/);
@@ -573,6 +575,21 @@ test.describe('projects without an old site', () => {
 });
 
 test.describe('screenshots demo', () => {
+  test('El Break refuses framing, so it is shown as screenshots of the real site', async ({ page }) => {
+    await page.goto('/el-break/');
+    const card = page.locator('#el-break');
+    await expect(card.getByRole('link', { name: /Ver el sitio de El Break Food Truck/ })).toHaveAttribute(
+      'href',
+      'https://elbreak.vercel.app',
+    );
+    await card.getByRole('button', { name: /Ver el sitio de El Break Food Truck en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck' });
+    await expect(dialog.locator('iframe')).toHaveCount(0);
+    await expect(dialog.getByRole('img', { name: /Abierto ahora/ })).toBeVisible();
+    await dialog.getByRole('button', { name: /Tableta/ }).click();
+    await expect(dialog.getByRole('img', { name: /En una tableta/ })).toBeVisible();
+  });
+
   test('swaps real captures per device, with no iframe', async ({ page }) => {
     await page.goto('/melanie-creations/');
     await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
@@ -731,9 +748,11 @@ test.describe('security headers', () => {
     const csp = response?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain('unsafe-inline');
-    // Only the sites shown live may be framed; Melanie's refuses framing and is shown as screenshots.
+    // Only the sites shown live may be framed; Melanie's and El Break's refuse
+    // framing and are shown as screenshots.
     expect(csp).toMatch(/frame-src [^;]*https:\/\/consejeria-escolar\.vercel\.app/);
     expect(csp).not.toContain('melaniecreations.net');
+    expect(csp).not.toContain('elbreak');
     // The inline tab script and start script ran under the policy:
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
     expect(await visibleSlugs(page)).toEqual(['el-break', 'consejeria-escolar', 'fin']);

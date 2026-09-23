@@ -245,6 +245,44 @@ test('every live demo site answers and allows being framed here', async ({ page,
   }
 });
 
+/** Each project card's own link to the client's site, and why its demo isn't live (if it isn't). */
+const projectSites = (page: import('@playwright/test').Page) =>
+  page.locator('.card-project').evaluateAll((cards) =>
+    cards.map((card) => ({
+      url: card.querySelector<HTMLAnchorElement>('.actions a.btn-primary')!.href,
+      reason: card.querySelector<HTMLElement>('dialog[data-demo]')?.dataset.demoReason,
+    })),
+  );
+
+test('every project links to a site that answers', async ({ page, request }) => {
+  await page.goto('/');
+  const sites = await projectSites(page);
+  expect(sites.length).toBeGreaterThan(0);
+  for (const { url } of sites) {
+    if (draft.placeholderDemos.includes(new URL(url).origin)) continue;
+    const response = await request.get(url, { maxRedirects: 5, timeout: 20_000 });
+    expect(response.status(), url).toBeLessThan(400);
+  }
+});
+
+test('a site shown as screenshots because it refuses framing still refuses it', async ({ page, request }) => {
+  // Otherwise the card could be showing it live again: time to switch the demo back.
+  await page.goto('/');
+  for (const { url, reason } of await projectSites(page)) {
+    if (reason !== 'x-frame-options' && reason !== 'frame-ancestors') continue;
+    const response = await request.get(url, { maxRedirects: 5, timeout: 20_000 });
+    expect(response.status(), `${url} must answer before its framing can be judged`).toBeLessThan(400);
+    const headers = response.headers();
+    const ancestors = [...(headers['content-security-policy'] ?? '').matchAll(/frame-ancestors([^;,]*)/gi)].map((m) =>
+      m[1]!.trim(),
+    );
+    const refuses =
+      /deny|sameorigin/i.test(headers['x-frame-options'] ?? '') ||
+      ancestors.some((list) => !list.split(/\s+/).some((s) => s === '*' || s === 'https:' || s.replace(/\/$/, '') === HERE));
+    expect(refuses, `${url} (${reason}) no longer refuses framing`).toBe(true);
+  }
+});
+
 test('the browser shows each live demo without refusing the frame', async ({ page }) => {
   const refusals: string[] = [];
   page.on('console', (msg) => {

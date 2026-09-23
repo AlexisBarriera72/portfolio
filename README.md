@@ -54,12 +54,10 @@ says exactly what and where.
 
 - the real domain (`src/data/site.ts` → `url`);
 - the real WhatsApp and phone number (`src/data/site.ts` → `contact`);
-- El Break's real web address (`src/data/cards/10-el-break.ts` → `liveUrl`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the media: your portrait, the share image, the intro video with its poster
-  and its captions (`public/media/intro/saludo.es.vtt` and `.en.vtt`, timed to
-  the real recording), El Break's before/after screenshots and its demo
-  captures (`npm run capture` once its real address is in).
+- the media: your portrait, the share image, and the intro video with its
+  poster and its captions (`public/media/intro/saludo.es.vtt` and `.en.vtt`,
+  timed to the real recording).
 
 Also worth doing:
 

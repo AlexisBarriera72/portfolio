@@ -77,11 +77,17 @@ export const settle = (page: Page) =>
       }),
   );
 
-/** Like a larger default font in the browser's settings. (Via the CSSOM: the CSP rightly blocks a <style> tag.) */
-export const enlargeText = (page: Page, size: string) =>
-  page.evaluate((s) => {
+/**
+ * Like a larger default font in the browser's settings. (Via the CSSOM: the
+ * CSP rightly blocks a <style> tag.) The bar grows with the text, so the feed
+ * changes size and puts its card back: wait for that before going on.
+ */
+export async function enlargeText(page: Page, size: string) {
+  await page.evaluate((s) => {
     document.documentElement.style.fontSize = s;
   }, size);
+  await settle(page);
+}
 
 /** Turn snapping off, so a test can hold the feed at an exact in-between position. */
 export const disableSnapping = (page: Page) =>
