@@ -302,6 +302,136 @@ test.describe('video', () => {
   });
 });
 
+/**
+ * A home page with four more clip cards after the intro, cloned from its
+ * markup with unique ids, paths and media URLs (each served the fixture WebM
+ * and captions), so resource handling can be watched across several real
+ * clips. Returns the media requests seen per clip.
+ */
+async function withManyClips(page: Page) {
+  await withRealIntroMedia(page);
+  const requests = new Map<string, number>();
+  await page.route('**/media/test/**', (route) => {
+    const url = new URL(route.request().url()).pathname;
+    const clip = url.match(/clip-\d/)?.[0] ?? url;
+    requests.set(clip, (requests.get(clip) ?? 0) + 1);
+    return url.endsWith('.vtt')
+      ? route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' })
+      : route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' });
+  });
+  await page.route(/\/$/, async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    const start = html.indexOf('<li class="card is-start" id="inicio"');
+    const end = html.indexOf('<li class="card', start + 10);
+    const intro = html.slice(start, end).replace('card is-start', 'card');
+    const clones = [1, 2, 3, 4]
+      .map((n) =>
+        intro
+          .replaceAll('id="inicio"', `id="clip-${n}"`)
+          .replaceAll('h-inicio', `h-clip-${n}`)
+          .replace('data-path="/"', `data-path="/clip-${n}/"`)
+          .replace('data-alt-path="/en/"', `data-alt-path="/en/clip-${n}/"`)
+          .replaceAll('/media/intro/saludo', `/media/test/clip-${n}`),
+      )
+      .join('');
+    await route.fulfill({ response, body: html.slice(0, end) + clones + html.slice(end) });
+  });
+  return requests;
+}
+
+/** Which clips hold sources, and which are playing. */
+const clipState = (page: Page) =>
+  page.evaluate(() => {
+    const held: string[] = [];
+    const playing: string[] = [];
+    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+      const video = card.querySelector<HTMLVideoElement>(':scope > article > .intro > [data-clip] video');
+      if (!video) continue;
+      if ([...video.querySelectorAll('source')].some((s) => s.hasAttribute('src'))) held.push(card.id);
+      if (!video.paused) playing.push(card.id);
+    }
+    return { held, playing };
+  });
+
+test.describe('video window', () => {
+  test('only the card on screen and its neighbours hold a clip; only it plays; choices survive', async ({ page }) => {
+    const requests = await withManyClips(page);
+    await page.goto('/');
+    await expectAligned(page, 'inicio');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['inicio', 'clip-1'], playing: ['inicio'] });
+
+    // Rapid moves: three cards down.
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+    await expectAligned(page, 'clip-3');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['clip-2', 'clip-3', 'clip-4'], playing: ['clip-3'] });
+
+    // Choices on clip-3: sound on, captions off, then pause by hand. (Sound
+    // comes first: turning the sound on starts a paused clip, on purpose.)
+    const clip3 = page.locator('#clip-3');
+    await clip3.getByRole('button', { name: 'Activar el sonido' }).click();
+    await clip3.getByRole('button', { name: 'Subtítulos' }).click();
+    await clip3.getByRole('button', { name: 'Pausar el video' }).click();
+    await expect.poll(() => clipState(page).then((s) => s.playing)).toEqual([]);
+
+    // Far away and back, fast: End, Home, End.
+    await page.keyboard.press('End');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('End');
+    await expectAligned(page, 'fin');
+    await expect.poll(() => clipState(page)).toEqual({ held: [], playing: [] });
+    const clip1Requests = requests.get('clip-1') ?? 0;
+    await page.waitForTimeout(500);
+    expect(requests.get('clip-1') ?? 0, 'an unloaded clip fetches nothing more').toBe(clip1Requests);
+
+    // Back to clip-3: reloaded, still paused, still unmuted, captions still off.
+    await page.evaluate(() => document.getElementById('clip-3')!.scrollIntoView({ behavior: 'instant' }));
+    await expectAligned(page, 'clip-3');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['clip-2', 'clip-3', 'clip-4'], playing: [] });
+    expect(await clip3.locator('video').evaluate((v: HTMLVideoElement) => v.muted)).toBe(false);
+    await expect(clip3.getByRole('button', { name: 'Subtítulos' })).toHaveAttribute('aria-pressed', 'false');
+    await expect
+      .poll(() => clip3.locator('video').evaluate((v: HTMLVideoElement) => [...v.textTracks].map((t) => t.mode)))
+      .toEqual(['hidden']);
+    await expect(clip3.locator('[data-clip-error-text]')).toHaveText('');
+  });
+});
+
+test.describe('video window: stale results', () => {
+  test('a late failure from an earlier load never marks the reloaded clip as failed', async ({ page }) => {
+    await withManyClips(page);
+    // clip-1's first play() only settles 1.5s later, as a failure ("no playable
+    // source") — by then that load has been unloaded and a new one is playing.
+    await page.addInitScript(() => {
+      const realPlay = HTMLMediaElement.prototype.play;
+      let first = true;
+      HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+        if (first && this.closest('#clip-1')) {
+          first = false;
+          return new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new DOMException('late', 'NotSupportedError')), 1500),
+          );
+        }
+        return realPlay.call(this);
+      };
+    });
+    await page.goto('/');
+    await page.keyboard.press('ArrowDown');
+    await expectAligned(page, 'clip-1'); // autoplay: the slow, failing play()
+    await page.keyboard.press('End'); // clip-1 unloaded
+    await expectAligned(page, 'fin');
+    await page.keyboard.press('Home');
+    await expectAligned(page, 'inicio');
+    await page.keyboard.press('ArrowDown'); // clip-1 loaded and played again
+    await expectAligned(page, 'clip-1');
+    await page.waitForTimeout(1800); // the stale rejection has arrived
+    const clip1 = page.locator('#clip-1');
+    await expect(clip1.locator('.clip')).not.toHaveClass(/is-error/);
+    await expect(clip1.locator('[data-clip-error-text]')).toHaveText('');
+    await expect.poll(() => clipState(page).then((s) => s.playing)).toEqual(['clip-1']);
+  });
+});
+
 test.describe('intro clip', () => {
   test('fills the whole intro card, with its controls at the top', async ({ page }) => {
     await page.goto('/');

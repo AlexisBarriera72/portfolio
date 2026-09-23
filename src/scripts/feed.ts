@@ -12,8 +12,8 @@
  *  - the active card: the one under the middle of the feed. Its page path
  *    goes into the address bar (replaceState — scrolling never adds history
  *    entries), its title into the tab, and the language link follows it;
- *  - video: only the active card and its neighbours fetch their clip, and only
- *    the active one plays;
+ *  - video: only the active card and its neighbours hold their clip (every
+ *    other clip is unloaded), and only the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
  *  - keyboard: ↑/↓, PageUp/PageDown and Space read through a card that
  *    scrolls inside itself before moving to the next one; Home/End jump to
@@ -24,7 +24,7 @@
  */
 import { DEFAULT_TAB, FEED_TABS, type FeedTab } from '../data/types';
 import { format } from '../i18n/format';
-import { autoplayClip, loadClip, pauseClip } from './clips';
+import { autoplayClip, loadClip, pauseClip, unloadClip } from './clips';
 
 const root = document.documentElement;
 const feed = document.querySelector<HTMLElement>('.feed');
@@ -42,6 +42,8 @@ function init(feed: HTMLElement): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let active: HTMLLIElement | undefined;
+  /** The card a key or arrow press is still scrolling to — the next press continues from there. */
+  let enRoute: HTMLElement | undefined;
 
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -81,6 +83,7 @@ function init(feed: HTMLElement): void {
 
   /** Move to a card on purpose (keys, arrows, links): focus it and say where we are. */
   const goTo = (card: HTMLElement, edge: 'start' | 'end' = 'start') => {
+    enRoute = card;
     scrollToCard(card, true, edge);
     bodyOf(card).focus({ preventScroll: true });
     const list = visibleCards();
@@ -124,6 +127,12 @@ function init(feed: HTMLElement): void {
    */
   const move = (direction: 1 | -1, size: 'line' | 'page') => {
     const list = visibleCards();
+    // Pressed again before the last move arrived: continue from where it is going.
+    if (enRoute && list.includes(enRoute as HTMLLIElement) && enRoute !== active) {
+      const target = list[list.indexOf(enRoute as HTMLLIElement) + direction];
+      if (target) goTo(target, direction > 0 ? 'start' : 'end');
+      return;
+    }
     const card = active && list.includes(active) ? active : undefined;
     if (card) {
       const body = bodyOf(card);
@@ -152,10 +161,15 @@ function init(feed: HTMLElement): void {
   };
   // `scrollend` doesn't bubble: listen in the capture phase for the feed and the cards.
   document.addEventListener('scrollend', updateArrows, true);
+  // However a scroll ended (arrived, or a finger took over), a move is no longer in flight.
+  feed.addEventListener('scrollend', () => {
+    enRoute = undefined;
+  });
 
   /* ------------------------------------------------------- active card */
 
   const activate = (card: HTMLLIElement) => {
+    if (card === enRoute) enRoute = undefined;
     if (card === active) return;
     active = card;
 
@@ -168,12 +182,17 @@ function init(feed: HTMLElement): void {
     const i = list.indexOf(card);
     updateArrows();
 
-    // Clips: fetch for this card and its neighbours, play only this one.
+    // Clips: held only for this card and its neighbours (the rest are
+    // unloaded — sources detached, buffer released); only this one plays.
     const near = new Set([list[i - 1], card, list[i + 1]]);
     for (const other of cards) {
       for (const clip of other.querySelectorAll<HTMLElement>('[data-clip]')) {
         if (clip.closest('dialog')) continue; // demo recordings belong to the dialog
-        if (near.has(other)) loadClip(clip);
+        if (!near.has(other)) {
+          unloadClip(clip);
+          continue;
+        }
+        loadClip(clip);
         if (other === card) autoplayClip(clip);
         else pauseClip(clip);
       }
