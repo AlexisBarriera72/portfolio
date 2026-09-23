@@ -27,7 +27,7 @@ export default defineConfig({
   webServer: external
     ? undefined
     : {
-        command: 'node e2e/serve.mjs dist 4322',
+        command: 'node scripts/serve.mjs dist 4322',
         url: 'http://127.0.0.1:4322/',
         reuseExistingServer: !process.env.CI,
       },
