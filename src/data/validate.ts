@@ -1,4 +1,4 @@
-import type { Card, Clip, Cta, Img, SiteConfig } from './types';
+import type { Card, Clip, Cta, Img, SiteConfig, SpokenClip } from './types';
 import { DEFAULT_TAB, FEED_TABS, LOCALES } from './types';
 
 /**
@@ -27,6 +27,8 @@ export interface ValidateOptions {
   fileSize?: (publicPath: string) => number | undefined;
   /** Real size of an image under src/assets/media/, or undefined if it does not exist. */
   imageSize?: (imagePath: string) => { width: number; height: number } | undefined;
+  /** Text of a file under public/ (caption files), or undefined if it does not exist. */
+  readText?: (publicPath: string) => string | undefined;
   /** YYYY-MM-DD. Defaults to the current date. */
   today?: string;
 }
@@ -177,6 +179,7 @@ function checkCardType(card: Card, site: SiteConfig, today: string, problems: st
 
   switch (card.type) {
     case 'project': {
+      if (card.demo.mode === 'recorded') checkClip(card.demo.clip, `${at} demo clip`, problems);
       if (card.demo.mode === 'live') {
         const checked = card.demo.framingCheckedOn;
         if (!isIsoDate(checked)) {
@@ -227,6 +230,9 @@ function checkCardType(card: Card, site: SiteConfig, today: string, problems: st
       return;
 
     case 'intro':
+      checkClip(card.clip, `${at} clip`, problems);
+      return;
+
     case 'about':
     case 'end':
       return;
@@ -234,6 +240,17 @@ function checkCardType(card: Card, site: SiteConfig, today: string, problems: st
     default:
       assertNever(card);
   }
+}
+
+/**
+ * TypeScript already requires captions and a transcript on a clip with sound;
+ * this repeats it at runtime for a card file that skipped its type annotation.
+ */
+function checkClip(clip: Clip, where: string, problems: string[]): void {
+  if (!clip.sound) return;
+  const spoken = clip as Partial<Pick<SpokenClip, 'captions' | 'transcript'>>;
+  if (!spoken.captions) problems.push(`${where} has sound, so it needs captions (a WebVTT file per language)`);
+  if (!spoken.transcript) problems.push(`${where} has sound, so it needs a transcript`);
 }
 
 function checkSite(site: SiteConfig, problems: string[]): void {
@@ -258,7 +275,7 @@ function checkSite(site: SiteConfig, problems: string[]): void {
 function checkLaunch(
   entries: CardEntry[],
   site: SiteConfig,
-  { fileSize, imageSize }: ValidateOptions,
+  { fileSize, imageSize, readText }: ValidateOptions,
   problems: string[],
 ): void {
   if (!fileSize || !imageSize) {
@@ -300,6 +317,8 @@ function checkLaunch(
       problems.push(`missing file public${ref.src}`);
     } else if (ref.kind !== 'vtt' && bytes > MAX_CLIP_BYTES) {
       problems.push(`${ref.src} is ${(bytes / 1024 / 1024).toFixed(1)} MB — clips must stay under 2 MB`);
+    } else if (ref.kind === 'vtt' && readText && !/^\uFEFF?WEBVTT(\s|$)/.test(readText(ref.src) ?? '')) {
+      problems.push(`${ref.src} is not a WebVTT file — it must start with "WEBVTT"`);
     }
   }
 }

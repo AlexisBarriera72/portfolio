@@ -314,7 +314,8 @@ html:not([data-tab]) .tabs {
   background: #0f172a;
   color: #fff;
 }
-.intro-clip {
+/* Two classes, so it wins over the generic .clip (position: relative) below. */
+.clip.intro-clip {
   position: absolute;
   inset: 0;
 }
@@ -378,6 +379,10 @@ html:not([data-tab]) .tabs {
   background: linear-gradient(160deg, #134e4a, #0f172a);
   color: #94a3b8;
 }
+/* Behind the words of a card, the placeholder keeps its accessible name but shows no text. */
+.clip .img-missing.clip-poster > span {
+  display: none;
+}
 .clip-video {
   opacity: 0;
   transition: opacity 0.3s;
@@ -403,6 +408,47 @@ html:not([data-tab]) .tabs {
   color: #fff;
   cursor: pointer;
 }
+.clip-cc {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.clip-cc[aria-pressed='false'] {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+/* Captions sit above the gradient and the words at the bottom of the intro. */
+.clip-video::cue {
+  font-size: 1rem;
+  background: rgb(15 23 42 / 0.8);
+}
+
+/* The transcript under a spoken clip: a plain disclosure. */
+.transcript summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.transcript-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.25rem 0 0.5rem;
+}
+.transcript-on-dark summary {
+  color: #e2e8f0;
+}
+.transcript-on-dark .transcript-text {
+  color: #f1f5f9;
+}
+.demo-transcript {
+  padding-inline: 1rem;
+}
+
 .clip .icon-pause,
 .clip.is-playing .icon-play,
 .clip .icon-unmuted,

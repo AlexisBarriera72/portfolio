@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { localePath } from '../i18n';
 import { resolveImage } from './media';
@@ -55,7 +55,20 @@ const entries: CardEntry[] = Object.entries(modules)
  * validate.ts.
  */
 export function contentProblems(strict: boolean): string[] {
-  return validate(entries, site, { strict, fileSize: publicFileSize, imageSize: resolveImage });
+  return validate(entries, site, {
+    strict,
+    fileSize: publicFileSize,
+    imageSize: resolveImage,
+    readText: publicFileText,
+  });
+}
+
+function publicFileText(publicPath: string): string | undefined {
+  try {
+    return readFileSync(join(process.cwd(), 'public', publicPath), 'utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 /** Resolved from the project root: at build time this module runs from a bundled chunk, not from src/. */

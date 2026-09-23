@@ -18,6 +18,7 @@
 import { DEVICE_PRESETS, type Locale, type ProjectCard } from '../data/types';
 import { t } from '../i18n';
 import Clip from './Clip.astro';
+import ClipTranscript from './ClipTranscript.astro';
 import Icon from './Icon.astro';
 import Img from './Img.astro';
 
@@ -102,6 +103,7 @@ const first = DEVICE_PRESETS[0];
       <div class="demo-recorded">
         <p class="demo-lead">{ui.recordedDemoNote}</p>
         <Clip clip={card.demo.clip} locale={locale} class="demo-clip" />
+        <ClipTranscript clip={card.demo.clip} locale={locale} class="demo-transcript" />
       </div>
     )
   }

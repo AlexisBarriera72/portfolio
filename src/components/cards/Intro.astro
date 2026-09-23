@@ -2,6 +2,7 @@
 import type { IntroCard, Locale } from '../../data/types';
 import { t } from '../../i18n';
 import Clip from '../Clip.astro';
+import ClipTranscript from '../ClipTranscript.astro';
 import Cta from '../Cta.astro';
 import Icon from '../Icon.astro';
 
@@ -22,6 +23,7 @@ const ui = t(locale);
     <h2 id={`h-${card.slug}`} class="intro-heading">{card.heading[locale]}</h2>
     <p class="intro-role">{card.role[locale]}</p>
     <Cta cta={card.cta} locale={locale} class="self-start" />
+    <ClipTranscript clip={card.clip} locale={locale} class="transcript-on-dark" />
     <p class="swipe-hint" aria-hidden="true"><Icon name="arrow-up" size={18} />{ui.nav.swipeHint}</p>
   </div>
 </div>

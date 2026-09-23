@@ -80,7 +80,9 @@ export const es: UIStrings = {
   video: {
     play: 'Reproducir el video',
     pause: 'Pausar el video',
-    transcriptHeading: 'Lo que dice el video',
+    transcriptShow: 'Leer lo que dice el video',
+    captions: 'Subtítulos',
+    captionsLanguage: 'Español',
     soundOn: 'Activar el sonido',
     soundOff: 'Quitar el sonido',
   },

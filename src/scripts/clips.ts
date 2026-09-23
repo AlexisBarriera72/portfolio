@@ -67,6 +67,14 @@ function setUp(clip: HTMLElement): void {
     }
   });
 
+  // CC: captions show by default (the clip starts muted); this hides them.
+  const cc = clip.querySelector<HTMLButtonElement>('[data-clip-cc]');
+  cc?.addEventListener('click', () => {
+    const on = cc.getAttribute('aria-pressed') !== 'true';
+    cc.setAttribute('aria-pressed', String(on));
+    for (const track of video.textTracks) track.mode = on ? 'showing' : 'hidden';
+  });
+
   sound?.addEventListener('click', () => {
     video.muted = !video.muted;
     clip.classList.toggle('is-unmuted', !video.muted);

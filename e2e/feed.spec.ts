@@ -134,6 +134,35 @@ test.describe('video', () => {
   });
 });
 
+test.describe('intro clip', () => {
+  test('fills the whole intro card, with its controls at the top', async ({ page }) => {
+    await page.goto('/');
+    const card = await page.locator('#inicio .intro').boundingBox();
+    const clip = await page.locator('#inicio .intro-clip').boundingBox();
+    const controls = await page.locator('#inicio .clip-controls').boundingBox();
+    expect(clip!.height).toBeGreaterThan(card!.height - 2);
+    expect(controls!.y - card!.y).toBeLessThan(24);
+  });
+});
+
+test.describe('captions and transcript', () => {
+  test('a spoken clip has a captions toggle and a visible transcript', async ({ page }) => {
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    const cc = intro.getByRole('button', { name: 'Subtítulos' });
+    await expect(cc).toHaveAttribute('aria-pressed', 'true');
+    await expect(intro.locator('track[kind="captions"]')).toHaveAttribute('label', 'Español');
+    await cc.click();
+    await expect(cc).toHaveAttribute('aria-pressed', 'false');
+
+    const transcript = intro.getByText('Leer lo que dice el video');
+    await expect(transcript).toBeVisible();
+    await expect(intro.getByText(/Hola, soy Alexis/)).toBeHidden();
+    await transcript.click();
+    await expect(intro.getByText(/Hola, soy Alexis/)).toBeVisible();
+  });
+});
+
 test.describe('autoplay', () => {
   const introPaused = (page: Page) => page.locator('#inicio video').evaluate((v: HTMLVideoElement) => v.paused);
 

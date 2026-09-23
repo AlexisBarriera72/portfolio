@@ -111,8 +111,12 @@ export interface UIStrings {
     /** Accessible name for the play/pause control. */
     play: string;
     pause: string;
-    /** Heading for the visually-hidden transcript. */
-    transcriptHeading: string;
+    /** Opens the transcript under a spoken clip. */
+    transcriptShow: string;
+    /** Accessible name of the CC (captions on/off) button. */
+    captions: string;
+    /** The caption track's label: this page's language, in that language. */
+    captionsLanguage: string;
     soundOn: string;
     soundOff: string;
   };
