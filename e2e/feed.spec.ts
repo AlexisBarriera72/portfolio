@@ -22,6 +22,19 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
+/** The "Para ti" feed, in order. */
+const PARA_TI = [
+  'inicio',
+  'el-break',
+  'consejeria-escolar',
+  'melanie-creations',
+  'precios',
+  'que-incluye',
+  'sobre-mi',
+  'contacto',
+  'fin',
+];
+
 const visibleSlugs = (page: Page) =>
   page.locator('.feed > .card').evaluateAll((cards) =>
     cards.filter((c) => getComputedStyle(c).display !== 'none').map((c) => c.id),
@@ -41,7 +54,7 @@ test.describe('feed', () => {
     await expect(page).toHaveTitle('Alexis · Páginas web en Ponce, PR');
     await expect(page.locator('html')).toHaveAttribute('lang', 'es-PR');
     await expect(page.locator('#inicio h2')).toBeVisible();
-    expect(await visibleSlugs(page)).toEqual(['inicio', 'el-break', 'precios', 'que-incluye', 'sobre-mi', 'contacto', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(PARA_TI);
     expect(errors).toEqual([]);
   });
 
@@ -65,7 +78,7 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.keyboard.press('ArrowDown');
     await expect(page).toHaveURL(/\/el-break\/$/);
-    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 7: El Break Food Truck');
+    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 9: El Break Food Truck');
     await page.keyboard.press('End');
     await expect(page).toHaveURL(/\/fin\/$/);
     await page.keyboard.press('Home');
@@ -91,7 +104,7 @@ test.describe('tabs', () => {
 
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
-    expect(await visibleSlugs(page)).toHaveLength(7);
+    expect(await visibleSlugs(page)).toEqual(PARA_TI);
     await expect(page.getByRole('tab', { name: 'Para ti' })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -105,7 +118,7 @@ test.describe('tabs', () => {
   test('an unknown tab falls back to "Para ti"', async ({ page }) => {
     await page.goto('/?tab=nope');
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'para-ti');
-    expect(await visibleSlugs(page)).toHaveLength(7);
+    expect(await visibleSlugs(page)).toEqual(PARA_TI);
   });
 
   test('arrow keys move between tabs without switching the feed', async ({ page }) => {
@@ -194,6 +207,49 @@ test.describe('project card', () => {
   });
 });
 
+test.describe('projects without an old site', () => {
+  test('show the new site alone, with no slider', async ({ page }) => {
+    await page.goto('/melanie-creations/');
+    const card = page.locator('#melanie-creations');
+    await expect(card.getByRole('img', { name: /Melanie Creations en un teléfono/ })).toBeVisible();
+    await expect(card.getByRole('slider')).toHaveCount(0);
+    await expect(card.getByText('Antes sus trabajos estaban solo en Instagram y Facebook.')).toBeVisible();
+    await expect(card.getByText('League City, Texas', { exact: false })).toBeVisible();
+  });
+
+  test('Melanie is not in "Local" — League City, Texas is outside the service area', async ({ page }) => {
+    await page.goto('/?tab=local');
+    expect(await visibleSlugs(page)).not.toContain('melanie-creations');
+  });
+});
+
+test.describe('screenshots demo', () => {
+  test('swaps real captures per device, with no iframe', async ({ page }) => {
+    await page.goto('/melanie-creations/');
+    await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('iframe')).toHaveCount(0);
+    await expect(dialog.getByRole('img', { name: /En un teléfono/ })).toBeVisible();
+
+    await dialog.getByRole('button', { name: /Computadora/ }).click();
+    await expect(dialog.getByRole('img', { name: /En una computadora/ })).toBeVisible();
+    await expect(dialog.getByRole('img', { name: /En un teléfono/ })).toBeHidden();
+  });
+});
+
+test.describe('live demo of a real client site', () => {
+  test('Consejería Escolar frames its own URL', async ({ page }) => {
+    const url = 'https://consejeria-escolar.vercel.app';
+    await page.route(`${url}/**`, (route) =>
+      route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>demo</title>' }),
+    );
+    await page.goto('/consejeria-escolar/');
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    await expect(page.locator('#demo-consejeria-escolar iframe')).toHaveAttribute('src', url);
+  });
+});
+
 test.describe('language', () => {
   test('the English page mirrors the Spanish one', async ({ page }) => {
     await page.goto('/en/el-break/');
@@ -243,9 +299,12 @@ test.describe('security headers', () => {
     const csp = response?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain('unsafe-inline');
+    // Only the sites shown live may be framed; Melanie's refuses framing and is shown as screenshots.
+    expect(csp).toMatch(/frame-src [^;]*https:\/\/consejeria-escolar\.vercel\.app/);
+    expect(csp).not.toContain('melaniecreations.net');
     // The inline tab script and start script ran under the policy:
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
-    expect(await visibleSlugs(page)).toEqual(['el-break', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(['el-break', 'consejeria-escolar', 'fin']);
     expect(errors).toEqual([]);
   });
 });

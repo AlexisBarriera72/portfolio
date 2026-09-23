@@ -36,7 +36,7 @@ export const en: UIStrings = {
     before: 'Before',
     after: 'After',
     comparisonLabel: (client) => `${client}’s website, before and after`,
-    outcomesHeading: 'What changed for the business',
+    outcomesHeading: 'What changed',
     demoHeading: 'Try it at different sizes',
     deviceGroupLabel: 'Screen size',
     devices: {
@@ -52,7 +52,7 @@ export const en: UIStrings = {
     openDemo: 'Try it',
     watchDemo: 'Watch it work',
     openDemoLabel: (client) => `Try ${client}’s site on a phone, tablet and computer`,
-    viewSizes: 'See each size',
+    viewSizes: 'See sizes',
     viewSizesLabel: (client) => `See ${client}’s site on a phone, tablet and computer`,
     screenshotsNote: 'Screenshots of the real site at each size',
     closeDemo: 'Close',
