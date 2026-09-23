@@ -166,6 +166,7 @@ test.describe('project card', () => {
   });
 
   test('the demo loads the live site only when opened, and unloads it on close', async ({ page }) => {
+    const errors = watchErrors(page);
     await page.route(`${LIVE_DEMO}/**`, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>demo</title><p>live site</p>' }),
     );
@@ -189,6 +190,7 @@ test.describe('project card', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(iframe).toHaveAttribute('src', 'about:blank');
+    expect(errors).toEqual([]); // includes CSP violations: frame-src must allow the demo
   });
 });
 
@@ -231,6 +233,20 @@ test.describe('desktop', () => {
     await down.click();
     await expect(page).toHaveURL(/\/el-break\/$/);
     await expect(up).toBeEnabled();
+  });
+});
+
+test.describe('security headers', () => {
+  test('pages are served with a strict CSP that the page itself does not violate', async ({ page }) => {
+    const errors = watchErrors(page);
+    const response = await page.goto('/el-break/?tab=local');
+    const csp = response?.headers()['content-security-policy'] ?? '';
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).not.toContain('unsafe-inline');
+    // The inline tab script and start script ran under the policy:
+    await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
+    expect(await visibleSlugs(page)).toEqual(['el-break', 'fin']);
+    expect(errors).toEqual([]);
   });
 });
 

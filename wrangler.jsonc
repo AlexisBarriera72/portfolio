@@ -1,0 +1,14 @@
+// Cloudflare deploy config: a static site served from dist/ by Workers static
+// assets. No server code runs — Cloudflare serves the built files and applies
+// dist/_headers (generated on every build: CSP, caching).
+{
+  "name": "portfolio",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    // /en → /en/ (pages are folders), matching trailingSlash: 'always'.
+    "html_handling": "auto-trailing-slash",
+    // Unknown paths get dist/404.html with a real 404 status.
+    "not_found_handling": "404-page"
+  }
+}

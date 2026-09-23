@@ -5,6 +5,7 @@ import { defineConfig } from 'astro/config';
 import { site } from './src/data/site.ts';
 import { localePath, t } from './src/i18n/index.ts';
 import { DEFAULT_LOCALE, LOCALES } from './src/data/types.ts';
+import securityHeaders from './src/integrations/security-headers.ts';
 
 // The origin lives in src/data/site.ts, so the sitemap, canonical URLs and
 // the JSON-LD cannot disagree about the domain.
@@ -18,6 +19,8 @@ export default defineConfig({
   // redirect on most hosts; this makes Astro and the sitemap agree on "/en/".
   trailingSlash: 'always',
   integrations: [
+    // Writes dist/_headers (CSP, caching) for Cloudflare after each build.
+    securityHeaders(),
     sitemap({
       // Only the language homes: every card page carries the same feed and
       // names its home as canonical (see src/layouts/Base.astro).
