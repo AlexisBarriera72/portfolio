@@ -840,6 +840,43 @@ html:not([data-tab]) .tabs {
   padding: 0.75rem 1rem 0;
   color: var(--color-muted);
 }
+/* Live demos: the live site or its screenshots, for when the frame stays blank. */
+.demo-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem 0;
+}
+.demo-view-group {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-canvas);
+}
+.demo-view {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.demo-view[aria-pressed='true'] {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.2);
+}
+.demo-hint {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+/* Out of sight while the screenshots show, but its line stays so nothing below jumps. */
+.demo-hint[hidden] {
+  display: block;
+  visibility: hidden;
+}
 .demo-devices {
   display: flex;
   gap: 0.5rem;
@@ -875,6 +912,9 @@ html:not([data-tab]) .tabs {
   padding: 1rem;
   background: var(--color-canvas);
 }
+.demo-stage[hidden] {
+  display: none;
+}
 /* The frame keeps its real device width; the script scales it to fit. */
 .demo-screen {
   margin-inline: auto;
@@ -891,13 +931,14 @@ html:not([data-tab]) .tabs {
 /* Screenshots mode: the capture for the chosen device, whole, centred in the stage. */
 .demo-shots {
   display: grid;
-  place-items: center;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
+/* Fixed-size tracks, so the image's max-height: 100% has a height to resolve
+   against and the whole capture fits instead of running off the bottom. */
 .demo-shot {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
-  width: 100%;
-  height: 100%;
   min-height: 0;
 }
 .demo-shot[hidden] {
@@ -914,6 +955,11 @@ html:not([data-tab]) .tabs {
 }
 .demo-shot picture {
   display: contents;
+}
+/* With <picture> flattened, its <source>s would become grid items too (they
+   are not display: none by default) and push the image into a second row. */
+.demo-shot source {
+  display: none;
 }
 .demo-recorded {
   display: flex;

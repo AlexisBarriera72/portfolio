@@ -394,7 +394,7 @@ export function mediaOf(card: Card): MediaRef[] {
     case 'project':
       if (card.beforeAfter.before) images.push(card.beforeAfter.before);
       images.push(card.beforeAfter.after);
-      if (card.demo.mode === 'screenshots') images.push(...Object.values(card.demo.shots));
+      if (card.demo.mode !== 'recorded') images.push(...Object.values(card.demo.shots));
       if (card.client.owner) images.push(card.client.owner.photo);
       break;
     case 'about':

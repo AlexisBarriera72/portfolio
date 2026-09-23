@@ -299,6 +299,26 @@ test.describe('screenshots demo', () => {
     await expect(dialog.getByRole('img', { name: /En una computadora/ })).toBeVisible();
     await expect(dialog.getByRole('img', { name: /En un teléfono/ })).toBeHidden();
   });
+
+  test('each capture fits whole inside the dialog', async ({ page }) => {
+    await page.goto('/melanie-creations/');
+    await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    const stage = dialog.locator('[data-demo-shots]');
+    for (const [device, alt] of [
+      ['Teléfono', /En un teléfono/],
+      ['Tableta', /En una tableta/],
+      ['Computadora', /En una computadora/],
+    ] as const) {
+      await dialog.getByRole('button', { name: new RegExp(device) }).click();
+      const shot = dialog.getByRole('img', { name: alt });
+      await expect(shot).toBeVisible();
+      await expect(shot).toHaveJSProperty('complete', true);
+      const [box, area] = [await shot.boundingBox(), await stage.boundingBox()];
+      expect(box!.y + box!.height, device).toBeLessThanOrEqual(area!.y + area!.height + 0.5);
+      expect(box!.x + box!.width, device).toBeLessThanOrEqual(area!.x + area!.width + 0.5);
+    }
+  });
 });
 
 test.describe('live demo of a real client site', () => {
@@ -310,6 +330,55 @@ test.describe('live demo of a real client site', () => {
     await page.goto('/consejeria-escolar/');
     await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
     await expect(page.locator('#demo-consejeria-escolar iframe')).toHaveAttribute('src', url);
+  });
+
+  test('a visible switch trades the frame for screenshots, and back', async ({ page }) => {
+    const url = 'https://consejeria-escolar.vercel.app';
+    let loads = 0;
+    await page.route(`${url}/**`, (route) => {
+      loads += 1;
+      return route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>demo</title>' });
+    });
+    await page.goto('/consejeria-escolar/');
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Consejería Escolar' });
+    const iframe = dialog.locator('iframe');
+    const live = dialog.getByRole('button', { name: 'En vivo' });
+    const shots = dialog.getByRole('button', { name: 'Capturas' });
+    const phoneShot = dialog.getByRole('img', { name: /^En un teléfono/ });
+
+    await expect(iframe).toHaveAttribute('src', url);
+    await expect(live).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByText('¿No carga? Mira las capturas.')).toBeVisible();
+    await expect(phoneShot).toBeHidden();
+    await expect.poll(() => loads).toBe(1);
+
+    // Screenshots: the site is unloaded, the capture for the chosen size shows.
+    await shots.click();
+    await expect(shots).toHaveAttribute('aria-pressed', 'true');
+    await expect(live).toHaveAttribute('aria-pressed', 'false');
+    await expect(iframe).toHaveAttribute('src', 'about:blank');
+    await expect(iframe).toBeHidden();
+    await expect(phoneShot).toBeVisible();
+
+    // The device buttons drive the screenshots too.
+    await dialog.getByRole('button', { name: /Tableta/ }).click();
+    await expect(dialog.getByRole('img', { name: /^En una tableta/ })).toBeVisible();
+    await expect(phoneShot).toBeHidden();
+
+    // The choice sticks across closing and reopening, without loading the site.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    await expect(shots).toHaveAttribute('aria-pressed', 'true');
+    await expect(iframe).toHaveAttribute('src', 'about:blank');
+
+    // Back to live: the site loads again, at the size chosen meanwhile.
+    await live.click();
+    await expect(iframe).toBeVisible();
+    await expect(iframe).toHaveAttribute('src', url);
+    await expect(iframe).toHaveAttribute('width', '820');
+    expect(await iframe.evaluate((el) => el.style.transform)).toMatch(/^scale\(0\.\d+\)$/);
+    await expect.poll(() => loads).toBe(2);
   });
 });
 

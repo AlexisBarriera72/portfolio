@@ -214,6 +214,13 @@ export type Demo =
       title: L10n;
       /** ISO date (YYYY-MM-DD) you last verified the site allows framing. */
       framingCheckedOn: string;
+      /**
+       * Captures at each device width, behind the demo's "Capturas" switch.
+       * A frame that stays blank (the site is down, started refusing framing,
+       * or the visitor's network blocks it) can't be detected reliably, so
+       * the switch is always offered instead.
+       */
+      shots: DemoShots;
     }
   | {
       mode: 'recorded';
@@ -226,12 +233,17 @@ export type Demo =
        * Real screenshots of the site at each device width — for a site that
        * refuses to be framed. The device buttons swap the picture, so the
        * layout change still shows; no video to record or keep under 2 MB.
-       * `npm run capture -- <url> <slug>` takes all three.
        */
       mode: 'screenshots';
       reason: DemoFallbackReason;
-      shots: Record<DeviceId, Img>;
+      shots: DemoShots;
     };
+
+/**
+ * One screenshot of the site per device width, all taken the same day.
+ * `npm run capture -- <url> <slug>` takes all three.
+ */
+export type DemoShots = Record<DeviceId, Img>;
 
 /** Why a demo is not live, kept on the record so the choice can be revisited. */
 export type DemoFallbackReason = 'x-frame-options' | 'frame-ancestors' | 'too-heavy' | 'other';

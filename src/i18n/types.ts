@@ -81,6 +81,12 @@ export interface UIStrings {
     viewSizesLabel: (client: string) => string;
     /** Above the screenshots in that demo. */
     screenshotsNote: string;
+    /** Name of the live/screenshots switch group in a live demo. */
+    viewGroupLabel: string;
+    viewLive: string;
+    viewShots: string;
+    /** Shown next to the switch: the way out when the frame stays blank. */
+    liveFallbackHint: string;
     closeDemo: string;
     /** Under the before/after box, for people who don't know it moves. */
     compareHint: string;

@@ -54,7 +54,12 @@ function fixture() {
     heading: l('El Break'),
     client: { name: 'El Break', kind: l('Food truck'), city: 'Yauco' },
     beforeAfter: { before: img('antes.webp'), after: img('despues.webp') },
-    demo: { mode: 'live', title: l('demo'), framingCheckedOn: '2026-09-01' },
+    demo: {
+      mode: 'live',
+      title: l('demo'),
+      framingCheckedOn: '2026-09-01',
+      shots: { phone: img('live/phone.webp'), tablet: img('live/tablet.webp'), desktop: img('live/desktop.webp') },
+    },
     outcomes: [l('Toma órdenes')],
     liveUrl: 'https://elbreak.pr',
   };
@@ -313,6 +318,14 @@ describe('validate — launch checks (strict)', () => {
       { ...fullDisk, imageSize: (p) => (p === 'shots/tablet.webp' ? undefined : { width: 780, height: 1688 }) },
     );
     expect(problems).toEqual(['missing image src/assets/media/shots/tablet.webp']);
+  });
+
+  it('checks the fallback screenshots of a live demo exist', () => {
+    const problems = problemsAfter(() => {}, true, {
+      ...fullDisk,
+      imageSize: (p) => (p === 'live/desktop.webp' ? undefined : { width: 780, height: 1688 }),
+    });
+    expect(problems).toEqual(['missing image src/assets/media/live/desktop.webp']);
   });
 
   it('requires captions and a transcript on a clip with sound', () => {

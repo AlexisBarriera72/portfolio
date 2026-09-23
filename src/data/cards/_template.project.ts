@@ -103,6 +103,13 @@ const card: ProjectCard = {
       en: 'TODO’s live website',
     },
     framingCheckedOn: 'TODO-YYYY-MM-DD',
+    // Shown behind the demo's "Capturas" switch, for when the frame stays
+    // blank. Take all three with: npm run capture -- https://TODO.com TODO-slug
+    shots: {
+      phone: { src: 'TODO-slug/phone.webp', alt: { es: 'TODO', en: 'TODO' } },
+      tablet: { src: 'TODO-slug/tablet.webp', alt: { es: 'TODO', en: 'TODO' } },
+      desktop: { src: 'TODO-slug/desktop.webp', alt: { es: 'TODO', en: 'TODO' } },
+    },
   },
 
   /**
