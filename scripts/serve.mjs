@@ -3,7 +3,8 @@
  * static hosting for the parts the site relies on:
  *   - /en → 307 → /en/, and /en/ serves en/index.html;
  *   - unknown paths get 404.html with status 404;
- *   - the rules in dist/_headers are applied (so the tests see the real CSP).
+ *   - the rules in dist/_headers are applied (so the tests see the real CSP,
+ *     less the one directive that can't work over plain http: servedHeader).
  *
  *   node scripts/serve.mjs [dir=dist] [port=4322]
  *
@@ -76,6 +77,23 @@ function matches(pattern, path) {
   return re.test(path);
 }
 
+/**
+ * The header as this server sends it. One change, to the CSP only: this
+ * server is plain http on 127.0.0.1, and `upgrade-insecure-requests` would
+ * make WebKit (which, unlike Chromium, doesn't exempt loopback) rewrite every
+ * request to https and load nothing. Every other directive is served as
+ * built, and the checks against a real deployment confirm the directive is
+ * there in production.
+ */
+export function servedHeader(name, value) {
+  if (name.toLowerCase() !== 'content-security-policy') return value;
+  return value
+    .split(';')
+    .map((directive) => directive.trim())
+    .filter((directive) => directive && directive !== 'upgrade-insecure-requests')
+    .join('; ');
+}
+
 export function createStaticServer(root) {
   const base = resolve(root);
   return createServer((req, res) => {
@@ -107,7 +125,7 @@ export function createStaticServer(root) {
 
     const headers = { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' };
     for (const rule of loadHeaderRules(base)) {
-      if (matches(rule.pattern, path)) for (const [name, value] of rule.headers) headers[name] = value;
+      if (matches(rule.pattern, path)) for (const [name, value] of rule.headers) headers[name] = servedHeader(name, value);
     }
 
     const stream = createReadStream(file);

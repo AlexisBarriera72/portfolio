@@ -102,6 +102,8 @@ test('every page is served, with the security headers', async ({ request }) => {
     const headers = response.headers();
     expect(headers['content-type'], path).toMatch(/^text\/html/);
     expect(headers['content-security-policy'], path).toContain("frame-ancestors 'none'");
+    // The local test server leaves this one out (plain http); a real deployment must send it.
+    expect(headers['content-security-policy'], path).toContain('upgrade-insecure-requests');
     expect(headers['x-content-type-options'], path).toBe('nosniff');
   }
   const missing = await request.get(`/no-existe-${Date.now()}/`);
