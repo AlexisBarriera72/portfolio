@@ -1,5 +1,5 @@
 import type { Card, Clip, Cta, Img, SiteConfig } from './types';
-import { FEED_TABS, LOCALES } from './types';
+import { DEFAULT_TAB, FEED_TABS, LOCALES } from './types';
 
 /**
  * Build-time content checks — everything TypeScript cannot catch: duplicates,
@@ -149,6 +149,9 @@ export function validate(
   const intros = cards.filter((c) => c.type === 'intro');
   if (intros.length !== 1) problems.push(`expected exactly 1 intro card, found ${intros.length}`);
   else if (cards[0]?.type !== 'intro') problems.push('the intro card must have the lowest order');
+  else if (!cards[0].tabs.includes(DEFAULT_TAB)) {
+    problems.push(`the intro card is the home page, so it must be in the "${DEFAULT_TAB}" tab`);
+  }
 
   const ends = cards.filter((c) => c.type === 'end');
   if (ends.length !== 1) problems.push(`expected exactly 1 end card, found ${ends.length}`);

@@ -69,6 +69,7 @@ function fixture() {
       { id: 'b', name: l('B'), priceFrom: 900, billing: 'once', includes: [l('y')], featured: true },
     ],
     note: l('note'),
+    afterFirstYear: l('$120 al año'),
     cta: { kind: 'whatsapp', label: l('WhatsApp') },
   };
   const inclusions: InclusionsCard = {
@@ -149,6 +150,13 @@ describe('validate — structure', () => {
       e.card.slug === 'precios' ? { ...e, path: './cards/35-precios.ts' } : e,
     );
     expect(validate(entries, f.site, { today: TODAY }).join('\n')).toMatch(/35 in its name but order 30/);
+  });
+
+  it('keeps the intro card in the default tab, since it is the home page', () => {
+    const problems = problemsAfter((f) => {
+      f.intro.tabs = ['local'];
+    });
+    expect(problems.join('\n')).toMatch(/intro card is the home page/);
   });
 
   it('rejects a reserved slug', () => {

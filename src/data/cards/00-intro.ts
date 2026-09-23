@@ -1,13 +1,15 @@
 import type { IntroCard } from '../types';
 
 /**
- * First card in every tab. Its poster image is the LCP element on the site,
- * so it is the only media that loads eagerly.
+ * First card of "Para ti" and the home page. Its poster image is the LCP
+ * element there, so it is the only media on that page that loads eagerly.
+ * It is not in the other tabs: someone who taps "Contacto" wants the contact
+ * card, not the intro video first.
  */
 const card: IntroCard = {
   type: 'intro',
   slug: 'inicio',
-  tabs: ['para-ti', 'local', 'precios', 'sobre-mi', 'contacto'],
+  tabs: ['para-ti'],
   order: 0,
 
   heading: {

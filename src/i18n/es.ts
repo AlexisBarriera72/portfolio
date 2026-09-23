@@ -57,6 +57,7 @@ export const es: UIStrings = {
     },
     includesHeading: 'Incluye',
     mostChosen: 'El más pedido',
+    afterFirstYear: 'Después del primer año',
   },
 
   contact: {

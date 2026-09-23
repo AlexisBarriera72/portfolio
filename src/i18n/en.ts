@@ -59,6 +59,7 @@ export const en: UIStrings = {
     },
     includesHeading: 'Includes',
     mostChosen: 'Most chosen',
+    afterFirstYear: 'After the first year',
   },
 
   contact: {

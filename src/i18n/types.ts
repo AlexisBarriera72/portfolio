@@ -77,6 +77,8 @@ export interface UIStrings {
     includesHeading: string;
     /** Marks the featured tier. */
     mostChosen: string;
+    /** Heading over the year-two cost line. */
+    afterFirstYear: string;
   };
 
   contact: {

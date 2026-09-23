@@ -59,7 +59,7 @@ const card: ProjectCard = {
       en: 'People can see whether the truck is open right now, without calling.',
     },
     {
-      es: 'La carta y los precios se leen del tirón en el teléfono.',
+      es: 'La carta y los precios se leen de un vistazo en el teléfono.',
       en: 'The menu and prices are readable at a glance on a phone.',
     },
     {

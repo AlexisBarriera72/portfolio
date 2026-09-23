@@ -247,6 +247,12 @@ export interface PricingCard extends CardBase {
   tiers: Tier[];
   /** The honest caveat under the table — what moves the price. */
   note: L10n;
+  /**
+   * What it costs to keep the site up after year one (domain renewal, hosting).
+   * Required: an unstated recurring cost is exactly the surprise a business
+   * owner is afraid of.
+   */
+  afterFirstYear: L10n;
   cta: Cta;
 }
 
