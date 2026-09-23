@@ -6,11 +6,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createStaticServer, resolveRequest } from './serve.mjs';
 
 describe('resolveRequest', () => {
-  const root = '/srv/dist';
+  const root = join(tmpdir(), 'serve-path-tests', 'dist');
 
   it('resolves normal paths inside the root', () => {
-    expect(resolveRequest(root, '/el-break/')).toEqual({ path: '/el-break/', file: '/srv/dist/el-break' });
-    expect(resolveRequest(root, '/media/a%20b.webm')).toMatchObject({ file: '/srv/dist/media/a b.webm' });
+    expect(resolveRequest(root, '/el-break/')).toEqual({ path: '/el-break/', file: join(root, 'el-break') });
+    expect(resolveRequest(root, '/media/a%20b.webm')).toMatchObject({ file: join(root, 'media', 'a b.webm') });
   });
 
   it('refuses a sibling directory that shares the prefix', () => {
@@ -19,7 +19,7 @@ describe('resolveRequest', () => {
 
   it('keeps dot-dot segments inside the root', () => {
     // The URL parser collapses %2e%2e segments at the root, so this stays in dist.
-    expect(resolveRequest(root, '/%2e%2e/%2e%2e/etc/passwd')).toMatchObject({ file: '/srv/dist/etc/passwd' });
+    expect(resolveRequest(root, '/%2e%2e/%2e%2e/etc/passwd')).toMatchObject({ file: join(root, 'etc', 'passwd') });
   });
 
   it('answers 400 to malformed percent-encoding instead of throwing', () => {

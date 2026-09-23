@@ -4,15 +4,17 @@
 //
 // Two Workers, so a preview can never replace the real site:
 //   - `portfolio` (production): only the strict build, deployed from `main`
-//     by .github/workflows/ci.yml, served on your custom domain;
+//     by .github/workflows/ci.yml, served on workers.dev or your custom domain;
 //   - `portfolio-preview` (`--env preview`): the draft build of a pull
-//     request, placeholders allowed, marked noindex.
+//     request or main, placeholders allowed, marked noindex.
 {
   "name": "portfolio",
   "compatibility_date": "2026-09-01",
   // Also serve on <name>.<account>.workers.dev: the preview's address, and a
   // second way to reach production for checks.
   "workers_dev": true,
+  // Version URLs are not our preview system. Drafts use the separate Worker.
+  "preview_urls": false,
   "assets": {
     "directory": "./dist",
     // /en → /en/ (pages are folders), matching trailingSlash: 'always'.
@@ -24,6 +26,7 @@
     "preview": {
       "name": "portfolio-preview",
       "workers_dev": true,
+      "preview_urls": false,
       "assets": {
         "directory": "./dist",
         "html_handling": "auto-trailing-slash",

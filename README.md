@@ -79,11 +79,13 @@ in San Juan, and reads the security headers this build generates.
 GitHub Actions does the deploying (`.github/workflows/ci.yml`), to two
 separate Workers so a preview can never replace the real site:
 
-- **Every pull request** → the draft build (placeholders allowed, hidden from
+- **Repository pull requests and pushes to `main`** → the draft build (placeholders allowed, hidden from
   search engines) goes to the `portfolio-preview` Worker. Its address is in
-  the job's summary, and the job then checks the live preview.
+  the job's summary, and the job then checks the live preview. This is a public
+  preview URL; `noindex` is not access control. Fork pull requests run tests only.
+  Actions → CI → Run workflow on `main` can refresh the preview without a code change.
 - **Every push to `main`** → the strict build goes to the `portfolio` Worker,
-  on your domain. The strict build refuses to exist while anything is fake or
+  on its workers.dev address or your domain. The strict build refuses to exist while anything is fake or
   missing, so until the "Before launch" list is done this job fails on
   purpose and nothing is deployed — the log lists what is left. After a
   deploy it checks the real domain (pages, contact links, share images,
@@ -101,13 +103,23 @@ One-time setup:
 3. **Turn off Cloudflare's own builds.** Workers & Pages → `portfolio` →
    Settings → Build → Disconnect. Until you do, Cloudflare keeps deploying
    every push itself — including the draft to the real site.
-4. **Take the draft off the real site until launch.** It is what `portfolio`
-   serves today. Workers & Pages → `portfolio` → Settings → Domains & Routes →
-   turn off the `workers.dev` address (or delete the Worker: the first launch
-   deploy creates it again).
-5. **Your domain.** Workers & Pages → `portfolio` → Settings → Domains &
-   Routes → Add → Custom domain (the domain has to use Cloudflare for its
-   DNS). Put the same domain in `src/data/site.ts` → `url`.
+4. **Keep production offline until launch.** On `portfolio`, leave its
+   workers.dev address disabled and do not attach a custom domain while an
+   old draft is deployed. Keep the Worker; there is no need to delete it.
+   Only a successful strict production deployment re-enables its address.
+5. **Choose the launch address.** A paid domain is optional. You can use
+   `https://portfolio.elnenealexis72.workers.dev` as `src/data/site.ts` → `url`.
+   If you later choose a custom domain, attach it to `portfolio` under
+   Domains & Routes and update the same content setting.
+
+There is only one deployment workflow: `.github/workflows/ci.yml`. Do not
+reintroduce `deploy.yml` or reconnect Cloudflare Git builds. Wrangler is pinned
+in `package-lock.json`; local checks and Actions use the same installed version.
+
+During setup, a red **production** job listing missing launch content is expected.
+The **verify** and **preview** jobs must pass independently. Inspect their logs
+before changing tokens or reconnecting Cloudflare. Never put API token values in
+the repository or a chat message.
 
 To check a deployment by hand, for example a preview:
 `DEPLOY_KIND=preview DEPLOY_URL=https://portfolio-preview.<account>.workers.dev npm run test:deployed`.

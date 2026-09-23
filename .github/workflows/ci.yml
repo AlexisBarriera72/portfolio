@@ -3,7 +3,7 @@ name: CI
 # Three jobs:
 #  - verify: every push and pull request. Type check, unit tests, draft build,
 #    browser tests against that build.
-#  - preview: pull requests. Deploys the draft build to its own Worker
+#  - preview: repository pull requests and main. Deploys the draft build to its own Worker
 #    (portfolio-preview), then checks the live preview.
 #  - production: pushes to main. Deploys only the strict build — it refuses to
 #    build while anything is fake or missing, so until the launch checklist is
@@ -15,12 +15,12 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  WRANGLER: wrangler@4.136.3
   LHCI: '@lhci/cli@0.15.1'
 
 jobs:
@@ -47,7 +47,10 @@ jobs:
           retention-days: 7
 
   preview:
-    if: github.event_name == 'pull_request'
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     needs: verify
     runs-on: ubuntu-latest
     # One preview Worker: deploy and check one pull request at a time, so a
@@ -86,7 +89,7 @@ jobs:
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler.ndjson
         run: |
           set -o pipefail
-          npx --yes "$WRANGLER" deploy --env preview 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          npx --no-install wrangler deploy --env preview 2>&1 | tee "$RUNNER_TEMP/deploy.log"
           url=$(node scripts/deploy-url.mjs "$WRANGLER_OUTPUT_FILE_PATH" "$RUNNER_TEMP/deploy.log")
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"
@@ -136,7 +139,7 @@ jobs:
       - name: Build (strict — refuses placeholders and missing media)
         run: npm run build
       - name: Deploy to the production Worker
-        run: npx --yes "$WRANGLER" deploy --env=""
+        run: npx --no-install wrangler deploy --env=""
       - id: site
         name: Read the real domain from the build
         run: echo "url=$(node scripts/site-url.mjs)" >> "$GITHUB_OUTPUT"
