@@ -111,6 +111,9 @@ export interface UIStrings {
     /** Accessible name for the play/pause control. */
     play: string;
     pause: string;
+    /** Shown when the video file fails to load or play. */
+    unavailable: string;
+    retry: string;
     /** Opens the transcript under a spoken clip. */
     transcriptShow: string;
     /** Accessible name of the CC (captions on/off) button. */

@@ -408,6 +408,49 @@ html:not([data-tab]) .tabs {
   color: #fff;
   cursor: pointer;
 }
+/* The video failed: a message under the controls; the poster stays. */
+.clip-error {
+  position: absolute;
+  z-index: 2;
+  top: 4rem;
+  right: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+/* Empty until an error, but always rendered: a live region must already be in
+   the accessibility tree for its new text to be announced. */
+.clip-error p:empty {
+  padding: 0;
+  background: none;
+}
+.clip-error p {
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.6rem;
+  background: rgb(15 23 42 / 0.8);
+  color: #fff;
+  font-size: 0.875rem;
+}
+.clip-retry {
+  min-height: 2.5rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.clip-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .clip-cc {
   font-size: 0.75rem;
   font-weight: 800;

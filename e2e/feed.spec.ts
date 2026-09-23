@@ -35,6 +35,18 @@ const offsetFromBar = (page: Page, slug: string) =>
     return Math.round(document.getElementById(id)!.getBoundingClientRect().top - bar);
   }, slug);
 
+/** Serve a real WebM and caption file in place of the intro media the draft doesn't have yet. */
+async function withRealIntroMedia(page: Page) {
+  await page.route('**/media/intro/saludo.webm', (route) =>
+    route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' }),
+  );
+  await page.route('**/media/intro/saludo.*.vtt', (route) =>
+    route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' }),
+  );
+}
+
+const introVideo = (page: Page) => page.locator('#inicio video');
+
 test.describe('feed', () => {
   test('home starts at the intro, with the right title and language', async ({ page }) => {
     await page.goto('/');
@@ -147,6 +159,7 @@ test.describe('intro clip', () => {
 
 test.describe('captions and transcript', () => {
   test('a spoken clip has a captions toggle and a visible transcript', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.goto('/');
     const intro = page.locator('#inicio');
     const cc = intro.getByRole('button', { name: 'Subtítulos' });
@@ -163,20 +176,57 @@ test.describe('captions and transcript', () => {
   });
 });
 
-test.describe('autoplay', () => {
-  const introPaused = (page: Page) => page.locator('#inicio video').evaluate((v: HTMLVideoElement) => v.paused);
 
-  test('the active card’s clip starts on its own', async ({ page }) => {
+test.describe('playback', () => {
+  test('the active card’s clip really plays, with its captions', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.goto('/');
-    await expect.poll(() => introPaused(page)).toBe(false);
+    await expect.poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 10_000 }).toBeGreaterThan(0.5);
+    await expect(page.locator('#inicio .clip')).toHaveClass(/is-playing/);
+    await expect
+      .poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.textTracks[0]?.cues?.length ?? 0))
+      .toBeGreaterThan(0);
+    await expect(page.locator('#inicio [data-clip-error-text]')).toHaveText('');
   });
 
   test('nothing autoplays when the visitor prefers reduced motion', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.locator('#inicio video source').first()).toHaveAttribute('src', /.+/);
-    await page.waitForTimeout(300);
-    expect(await introPaused(page)).toBe(true);
+    await page.waitForTimeout(800);
+    expect(await introVideo(page).evaluate((v: HTMLVideoElement) => [v.paused, v.currentTime])).toEqual([true, 0]);
+    // The play button still works.
+    await page.locator('#inicio').getByRole('button', { name: 'Reproducir el video' }).click();
+    await expect.poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0.3);
+  });
+
+  test('a missing video says so, disables its controls and offers a retry', async ({ page }) => {
+    // The draft really has no intro video: both files 404 (declared in /draft-missing.json).
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');
+    await expect(intro.getByRole('button', { name: /video/ })).toBeDisabled();
+    await expect(intro.getByRole('button', { name: 'Activar el sonido' })).toBeDisabled();
+    const retry = intro.getByRole('button', { name: 'Reintentar' });
+    await expect(retry).toBeVisible();
+    await retry.click();
+    // Still missing: back to the same honest state, not a silent spinner.
+    await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');
+  });
+
+  test('blocked autoplay is not an error: the clip waits with its play button', async ({ page }) => {
+    await withRealIntroMedia(page);
+    await page.addInitScript(() => {
+      HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('blocked', 'NotAllowedError'));
+    });
+    await page.goto('/');
+    await page.waitForTimeout(800);
+    const intro = page.locator('#inicio');
+    await expect(intro.locator('[data-clip-error-text]')).toHaveText('');
+    await expect(intro.getByRole('button', { name: 'Reintentar' })).toBeHidden();
+    await expect(intro.getByRole('button', { name: 'Reproducir el video' })).toBeEnabled();
+    await expect(intro.locator('.clip')).not.toHaveClass(/is-error/);
   });
 });
 
