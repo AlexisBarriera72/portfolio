@@ -7,8 +7,10 @@
  *  - video: only the active card and its neighbours fetch their clip, and only
  *    the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
- *  - keyboard: ↑/↓, PageUp/PageDown, Home/End move card by card;
- *  - the desktop arrows, card-to-card links, and "start over".
+ *  - keyboard: ↑/↓ and PageUp/PageDown read through a card taller than the
+ *    screen before moving to the next one; Home/End jump to the ends;
+ *  - the desktop arrows (like PageUp/PageDown), card-to-card links, and
+ *    "start over".
  */
 import { DEFAULT_TAB, FEED_TABS, type FeedTab } from '../data/types';
 import { format } from '../i18n/format';
@@ -27,6 +29,7 @@ function init(feed: HTMLElement): void {
   const status = document.querySelector<HTMLElement>('[data-feed-status]');
   const prev = document.querySelector<HTMLButtonElement>('[data-feed-prev]');
   const next = document.querySelector<HTMLButtonElement>('[data-feed-next]');
+  const bar = document.querySelector<HTMLElement>('.topbar');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let active: HTMLLIElement | undefined;
@@ -47,13 +50,32 @@ function init(feed: HTMLElement): void {
 
   const tabSearch = (tab: FeedTab) => (tab === DEFAULT_TAB ? '' : `?tab=${tab}`);
 
-  const scrollToCard = (card: HTMLElement, smooth: boolean) => {
-    card.scrollIntoView({ block: 'start', behavior: smooth && !reducedMotion.matches ? 'smooth' : 'instant' });
+  /** The part of the screen cards show in: from under the sticky bar to the bottom. */
+  const visibleArea = () => ({
+    top: bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0,
+    bottom: window.innerHeight,
+  });
+
+  const behavior = (smooth: boolean): ScrollBehavior => (smooth && !reducedMotion.matches ? 'smooth' : 'instant');
+
+  /**
+   * Bring a card on screen. `end` (arriving from below) shows the end of a
+   * card taller than the screen, so reading upwards skips nothing; a card
+   * that fits is always shown from its top.
+   */
+  const scrollToCard = (card: HTMLElement, smooth: boolean, edge: 'start' | 'end' = 'start') => {
+    const rect = card.getBoundingClientRect();
+    const { top, bottom } = visibleArea();
+    if (edge === 'end' && rect.height > bottom - top) {
+      window.scrollTo({ top: window.scrollY + rect.bottom - bottom, behavior: behavior(smooth) });
+    } else {
+      card.scrollIntoView({ block: 'start', behavior: behavior(smooth) });
+    }
   };
 
   /** Move to a card on purpose (keys, arrows, links): focus it and say where we are. */
-  const goTo = (card: HTMLElement) => {
-    scrollToCard(card, true);
+  const goTo = (card: HTMLElement, edge: 'start' | 'end' = 'start') => {
+    scrollToCard(card, true, edge);
     card.querySelector<HTMLElement>('article')?.focus({ preventScroll: true });
     const list = visibleCards();
     const heading = card.querySelector('h2')?.textContent?.trim() ?? '';
@@ -62,12 +84,45 @@ function init(feed: HTMLElement): void {
     }
   };
 
-  const step = (delta: number) => {
+  /** Slack, in px, for rounding when asking whether a card's edge is on screen. */
+  const EDGE = 2;
+
+  /**
+   * One press of ↑/↓ (`line`: a quarter screen), PageUp/PageDown or a desktop
+   * arrow (`page`: a screen, less a little overlap). While the current card
+   * still has content off screen in that direction, scroll through it —
+   * never past its edge. Only once its edge is on screen, move to the next
+   * card. Nothing is announced until the card changes.
+   */
+  const move = (direction: 1 | -1, size: 'line' | 'page') => {
     const list = visibleCards();
-    const from = active && list.includes(active) ? list.indexOf(active) : 0;
-    const target = list[Math.min(list.length - 1, Math.max(0, from + delta))];
-    if (target) goTo(target);
+    const card = active && list.includes(active) ? active : undefined;
+    if (card) {
+      const { top, bottom } = visibleArea();
+      const rect = card.getBoundingClientRect();
+      const offScreen = direction > 0 ? rect.bottom - bottom : top - rect.top;
+      if (offScreen > EDGE) {
+        const amount = (bottom - top) * (size === 'page' ? 0.9 : 0.25);
+        window.scrollTo({ top: window.scrollY + direction * Math.min(amount, offScreen), behavior: behavior(true) });
+        return;
+      }
+    }
+    const from = card ? list.indexOf(card) : 0;
+    const target = list[from + direction];
+    if (target) goTo(target, direction > 0 ? 'start' : 'end');
   };
+
+  /** The desktop arrows are off only at the very ends: first/last card, with its edge on screen. */
+  const updateArrows = () => {
+    const list = visibleCards();
+    const i = active ? list.indexOf(active) : 0;
+    const rect = active?.getBoundingClientRect();
+    const { top, bottom } = visibleArea();
+    if (prev) prev.disabled = i <= 0 && (!rect || rect.top >= top - EDGE);
+    if (next) next.disabled = i >= list.length - 1 && (!rect || rect.bottom <= bottom + EDGE);
+  };
+  // Where supported, also after reading through the first or last card.
+  window.addEventListener('scrollend', updateArrows);
 
   /* ------------------------------------------------------- active card */
 
@@ -82,8 +137,7 @@ function init(feed: HTMLElement): void {
 
     const list = visibleCards();
     const i = list.indexOf(card);
-    if (prev) prev.disabled = i <= 0;
-    if (next) next.disabled = i >= list.length - 1;
+    updateArrows();
 
     // Clips: fetch for this card and its neighbours, play only this one.
     const near = new Set([list[i - 1], card, list[i + 1]]);
@@ -172,31 +226,31 @@ function init(feed: HTMLElement): void {
 
   /* ----------------------------------------------------------- keyboard */
 
-  const KEYS: Record<string, number | 'first' | 'last'> = {
-    ArrowDown: 1,
-    PageDown: 1,
-    ArrowUp: -1,
-    PageUp: -1,
+  const KEYS: Record<string, [1 | -1, 'line' | 'page'] | 'first' | 'last'> = {
+    ArrowDown: [1, 'line'],
+    PageDown: [1, 'page'],
+    ArrowUp: [-1, 'line'],
+    PageUp: [-1, 'page'],
     Home: 'first',
     End: 'last',
   };
 
   document.addEventListener('keydown', (e) => {
-    const move = KEYS[e.key];
-    if (move === undefined || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const key = KEYS[e.key];
+    if (key === undefined || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     // Leave keys alone where they already mean something: typing, the
     // before/after slider, the tab row, the demo dialog, an embedded site.
     const target = e.target as HTMLElement;
     if (target.closest('input, textarea, select, [contenteditable], iframe, [role="tablist"], dialog')) return;
     e.preventDefault();
     const list = visibleCards();
-    if (move === 'first') goTo(list[0]!);
-    else if (move === 'last') goTo(list[list.length - 1]!);
-    else step(move);
+    if (key === 'first') goTo(list[0]!);
+    else if (key === 'last') goTo(list[list.length - 1]!);
+    else move(...key);
   });
 
-  prev?.addEventListener('click', () => step(-1));
-  next?.addEventListener('click', () => step(1));
+  prev?.addEventListener('click', () => move(-1, 'page'));
+  next?.addEventListener('click', () => move(1, 'page'));
 
   /* -------------------------------------------------------------- links */
 

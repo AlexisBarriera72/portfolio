@@ -91,6 +91,154 @@ test.describe('feed', () => {
   });
 });
 
+/** Resolves once the page has stopped scrolling (and the observer has had a frame to react). */
+const settle = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let last = scrollY;
+        let still = 0;
+        const tick = () => {
+          still = scrollY === last ? still + 1 : 0;
+          last = scrollY;
+          if (still >= 6) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+
+/** Tag every control in the shown cards (outside dialogs and closed disclosures) with data-reach. */
+const tagControls = (page: Page) =>
+  page.evaluate(() => {
+    let n = 0;
+    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+      if (getComputedStyle(card).display === 'none') continue;
+      const controls = card.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
+      );
+      for (const el of controls) {
+        // The card's own <article> is focusable too, but it is the card, not a control in it.
+        if (el.matches('.card-body') || el.closest('dialog') || !el.checkVisibility()) continue;
+        el.dataset.reach = `${card.id}: ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)} #${n++}`;
+      }
+    }
+    return n;
+  });
+
+/** The tagged controls that are wholly on screen, below the sticky bar. */
+const fullyOnScreen = (page: Page) =>
+  page.evaluate(() => {
+    const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
+    return [...document.querySelectorAll<HTMLElement>('[data-reach]')]
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height > 0 && r.top >= top - 1 && r.bottom <= innerHeight + 1;
+      })
+      .map((el) => el.dataset.reach!);
+  });
+
+/**
+ * Press `key` (or click `button`) until `done`, and record what came on
+ * screen. Returns the controls never seen, the order cards became active in,
+ * and every announcement made while the card did NOT change (should be none).
+ */
+async function readThrough(page: Page, press: () => Promise<void>, done: () => Promise<boolean>) {
+  const all = new Set<string>();
+  const seen = new Set<string>();
+  for (const id of await page.locator('[data-reach]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.reach!))) all.add(id);
+  for (const id of await fullyOnScreen(page)) seen.add(id);
+  const path = [new URL(page.url()).pathname];
+  const strayAnnouncements: string[] = [];
+  const status = page.locator('[data-feed-status]');
+  for (let i = 0; i < 400 && !(await done()); i++) {
+    const before = await status.textContent();
+    await press();
+    await settle(page);
+    for (const id of await fullyOnScreen(page)) seen.add(id);
+    const now = new URL(page.url()).pathname;
+    if (now !== path.at(-1)) path.push(now);
+    else if ((await status.textContent()) !== before) strayAnnouncements.push((await status.textContent()) ?? '');
+  }
+  return { unseen: [...all].filter((id) => !seen.has(id)), path, strayAnnouncements };
+}
+
+/** Like a larger default font in the browser's settings. (Via the CSSOM: the CSP rightly blocks a <style> tag.) */
+const enlargeText = (page: Page, size: string) =>
+  page.evaluate((s) => {
+    document.documentElement.style.fontSize = s;
+  }, size);
+
+const PARA_TI_PATHS = PARA_TI.map((slug) => (slug === 'inicio' ? '/' : `/${slug}/`));
+const atBottom = (page: Page) => page.evaluate(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 1);
+const atTop = (page: Page) => page.evaluate(() => scrollY <= 0);
+
+test.describe('keyboard reading', () => {
+  // Short screens and enlarged text make cards taller than the screen.
+  for (const { name, viewport, text } of [
+    { name: 'a 390×844 phone', viewport: { width: 390, height: 844 }, text: '100%' },
+    { name: 'a 360×640 phone', viewport: { width: 360, height: 640 }, text: '100%' },
+    { name: 'a 360×640 phone with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+  ]) {
+    test.describe(name, () => {
+      test.beforeEach(async ({ page }) => {
+        // Instant scrolling keeps hundreds of key presses fast; one test below runs smooth.
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.setViewportSize(viewport);
+        await page.goto('/');
+        await enlargeText(page, text);
+        await settle(page);
+        await tagControls(page);
+      });
+
+      test('PageDown shows every control of every card, in order, before moving on', async ({ page }) => {
+        const run = await readThrough(page, () => page.keyboard.press('PageDown'), () => atBottom(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual(PARA_TI_PATHS);
+        expect(run.strayAnnouncements).toEqual([]);
+      });
+
+      test('PageUp reads back up the same way', async ({ page }) => {
+        await page.keyboard.press('End');
+        await settle(page);
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await settle(page);
+        const run = await readThrough(page, () => page.keyboard.press('PageUp'), () => atTop(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual([...PARA_TI_PATHS].reverse());
+        expect(run.strayAnnouncements).toEqual([]);
+      });
+
+      test('↓ reads through too, a quarter screen at a time', async ({ page }) => {
+        const run = await readThrough(page, () => page.keyboard.press('ArrowDown'), () => atBottom(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual(PARA_TI_PATHS);
+      });
+    });
+  }
+
+  test('with smooth scrolling, PageDown shows the pricing card’s WhatsApp button before leaving it', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto('/precios/');
+    await enlargeText(page, '150%');
+    await settle(page);
+    const whatsapp = page.locator('#precios a.btn-whatsapp');
+    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
+    let shown = false;
+    for (let i = 0; i < 20 && new URL(page.url()).pathname === '/precios/'; i++) {
+      await page.keyboard.press('PageDown');
+      await settle(page);
+      if (new URL(page.url()).pathname !== '/precios/') break;
+      shown ||= await whatsapp.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return r.top >= document.querySelector('.topbar')!.getBoundingClientRect().bottom && r.bottom <= innerHeight;
+      });
+    }
+    expect(shown).toBe(true);
+    await expect(page).toHaveURL(/\/que-incluye\/$/);
+  });
+});
+
 test.describe('tabs', () => {
   test('filter the feed, go into the URL, and Back undoes them', async ({ page }) => {
     await page.goto('/');
@@ -421,6 +569,21 @@ test.describe('desktop', () => {
     await down.click();
     await expect(page).toHaveURL(/\/el-break\/$/);
     await expect(up).toBeEnabled();
+  });
+
+  test('the arrows read through cards taller than the window, then stop at the end', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto('/');
+    await enlargeText(page, '150%');
+    await settle(page);
+    await tagControls(page);
+    const down = page.getByRole('button', { name: 'Siguiente' });
+    const run = await readThrough(page, () => down.click(), () => atBottom(page));
+    expect(run.unseen).toEqual([]);
+    expect(run.path).toEqual(PARA_TI_PATHS);
+    expect(run.strayAnnouncements).toEqual([]);
+    await expect(down).toBeDisabled();
   });
 });
 
