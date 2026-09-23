@@ -1,11 +1,11 @@
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { localePath } from '../i18n';
 import { resolveImage } from './media';
 import { site } from './site';
 import type { Card, CardType, FeedTab, Locale } from './types';
 import { LOCALES } from './types';
-import { type CardEntry, validate } from './validate';
+import { type CardEntry, isPlaceholder, mediaOf, validate } from './validate';
 
 /**
  * Every .ts file in ./cards/ that default-exports a Card is in the feed.
@@ -55,7 +55,20 @@ const entries: CardEntry[] = Object.entries(modules)
  * validate.ts.
  */
 export function contentProblems(strict: boolean): string[] {
-  return validate(entries, site, { strict, fileSize: publicFileSize, imageSize: resolveImage });
+  return validate(entries, site, {
+    strict,
+    fileSize: publicFileSize,
+    imageSize: resolveImage,
+    readText: publicFileText,
+  });
+}
+
+function publicFileText(publicPath: string): string | undefined {
+  try {
+    return readFileSync(join(process.cwd(), 'public', publicPath), 'utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 /** Resolved from the project root: at build time this module runs from a bundled chunk, not from src/. */
@@ -109,6 +122,26 @@ export function cardPages(): { locale: Locale; card: Card; path: string }[] {
   return LOCALES.flatMap((locale) =>
     cards.map((card) => ({ locale, card, path: pathForCard(card, locale) })),
   );
+}
+
+/**
+ * What a draft build knowingly ships without: public media files (video,
+ * captions) that are referenced but not added yet, and live-demo URLs that
+ * are still placeholders. Published only by draft builds as
+ * /draft-missing.json, so tests can allow exactly these and nothing else.
+ */
+export function draftGaps(): { missing: string[]; placeholderDemos: string[] } {
+  const files = new Set<string>();
+  const demos = new Set<string>();
+  for (const { card } of entries) {
+    for (const ref of mediaOf(card)) {
+      if (ref.kind !== 'image' && publicFileSize(ref.src) === undefined) files.add(ref.src);
+    }
+    if (card.type === 'project' && card.demo.mode === 'live' && isPlaceholder(card.liveUrl)) {
+      demos.add(new URL(card.liveUrl).origin);
+    }
+  }
+  return { missing: [...files].sort(), placeholderDemos: [...demos].sort() };
 }
 
 /** Municipios that actually have a project, for the "Local" tab copy. */

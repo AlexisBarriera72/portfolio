@@ -81,6 +81,12 @@ export interface UIStrings {
     viewSizesLabel: (client: string) => string;
     /** Above the screenshots in that demo. */
     screenshotsNote: string;
+    /** Name of the live/screenshots switch group in a live demo. */
+    viewGroupLabel: string;
+    viewLive: string;
+    viewShots: string;
+    /** Shown next to the switch: the way out when the frame stays blank. */
+    liveFallbackHint: string;
     closeDemo: string;
     /** Under the before/after box, for people who don't know it moves. */
     compareHint: string;
@@ -111,8 +117,15 @@ export interface UIStrings {
     /** Accessible name for the play/pause control. */
     play: string;
     pause: string;
-    /** Heading for the visually-hidden transcript. */
-    transcriptHeading: string;
+    /** Shown when the video file fails to load or play. */
+    unavailable: string;
+    retry: string;
+    /** Opens the transcript under a spoken clip. */
+    transcriptShow: string;
+    /** Accessible name of the CC (captions on/off) button. */
+    captions: string;
+    /** The caption track's label: this page's language, in that language. */
+    captionsLanguage: string;
     soundOn: string;
     soundOff: string;
   };

@@ -51,6 +51,30 @@ const card: ProjectCard = {
       en: 'The Consejería Escolar site, live',
     },
     framingCheckedOn: '2026-09-23',
+    // Behind the demo's "Capturas" switch, for when the frame stays blank.
+    shots: {
+      phone: {
+        src: 'consejeria-escolar/phone.webp',
+        alt: {
+          es: 'En un teléfono: el título «Por dónde empezar» y la primera sección, Preguntas y Guías.',
+          en: 'On a phone: the heading “Por dónde empezar” (Where to start) and the first section, Questions and Guides.',
+        },
+      },
+      tablet: {
+        src: 'consejeria-escolar/tablet.webp',
+        alt: {
+          es: 'En una tableta: el título, las tres secciones —Preguntas y Guías, Noticias y El equipo— una al lado de la otra, y el aviso más reciente debajo.',
+          en: 'On a tablet: the heading, the three sections — Questions and Guides, News and The team — side by side, and the latest notice below.',
+        },
+      },
+      desktop: {
+        src: 'consejeria-escolar/desktop.webp',
+        alt: {
+          es: 'En una computadora: el menú arriba, el título «Por dónde empezar» al centro y las tres secciones en fila.',
+          en: 'On a computer: the menu at the top, the heading “Por dónde empezar” in the middle and the three sections in a row.',
+        },
+      },
+    },
   },
 
   outcomes: [

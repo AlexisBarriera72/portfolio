@@ -10,6 +10,12 @@
  * The phone/tablet/desktop buttons set the frame's real width; the stage
  * scales it down to fit, so the layout visibly reflows.
  *
+ * A frame that stays blank — the site is down, has started refusing to be
+ * framed, or the visitor's network blocks it — can't be detected reliably
+ * (a blocked frame still fires `load`). So a live demo always carries
+ * captures too, behind a visible "En vivo / Capturas" switch; showing the
+ * captures unloads the site, going back reloads it.
+ *
  * When the site refuses to be framed:
  *  - screenshots mode shows real captures at each device width; the same
  *    buttons swap them (src/scripts/demo.ts);
@@ -18,6 +24,7 @@
 import { DEVICE_PRESETS, type Locale, type ProjectCard } from '../data/types';
 import { t } from '../i18n';
 import Clip from './Clip.astro';
+import ClipTranscript from './ClipTranscript.astro';
 import Icon from './Icon.astro';
 import Img from './Img.astro';
 
@@ -30,7 +37,8 @@ interface Props {
 const { id, card, locale } = Astro.props;
 const ui = t(locale).project;
 const titleId = `${id}-title`;
-const shots = card.demo.mode === 'screenshots' ? card.demo.shots : undefined;
+const shots = card.demo.mode === 'recorded' ? undefined : card.demo.shots;
+const live = card.demo.mode === 'live';
 const first = DEVICE_PRESETS[0];
 ---
 
@@ -44,7 +52,22 @@ const first = DEVICE_PRESETS[0];
   {
     card.demo.mode !== 'recorded' && (
       <>
-        <p class="demo-lead">{card.demo.mode === 'live' ? ui.demoHeading : ui.screenshotsNote}</p>
+        <p class="demo-lead">{live ? ui.demoHeading : ui.screenshotsNote}</p>
+        {live && (
+          <div class="demo-views">
+            <div class="demo-view-group" role="group" aria-label={ui.viewGroupLabel}>
+              <button type="button" class="demo-view" data-demo-view="live" aria-pressed="true">
+                {ui.viewLive}
+              </button>
+              <button type="button" class="demo-view" data-demo-view="shots" aria-pressed="false">
+                {ui.viewShots}
+              </button>
+            </div>
+            <p class="demo-hint" data-demo-hint>
+              {ui.liveFallbackHint}
+            </p>
+          </div>
+        )}
         <div class="demo-devices" role="group" aria-label={ui.deviceGroupLabel}>
           {DEVICE_PRESETS.map((preset, i) => (
             <button
@@ -82,7 +105,7 @@ const first = DEVICE_PRESETS[0];
   }
   {
     shots && (
-      <div class="demo-stage demo-shots" data-demo-stage>
+      <div class="demo-stage demo-shots" data-demo-shots hidden={live}>
         {DEVICE_PRESETS.map((preset, i) => (
           <div class="demo-shot" data-device={preset.id} hidden={i !== 0}>
             {/* Lazy, inside a closed dialog and a hidden box: each shot loads only when shown. */}
@@ -102,6 +125,7 @@ const first = DEVICE_PRESETS[0];
       <div class="demo-recorded">
         <p class="demo-lead">{ui.recordedDemoNote}</p>
         <Clip clip={card.demo.clip} locale={locale} class="demo-clip" />
+        <ClipTranscript clip={card.demo.clip} locale={locale} class="demo-transcript" />
       </div>
     )
   }

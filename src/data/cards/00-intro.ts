@@ -32,6 +32,12 @@ const card: IntroCard = {
       en: 'Alexis looking at the camera, about to speak.',
     },
     sound: true,
+    // TODO(alexis): write these from the real recording — one cue per line
+    // said, timed to the video. Until they exist, the production build stops.
+    captions: {
+      es: '/media/intro/saludo.es.vtt',
+      en: '/media/intro/saludo.en.vtt',
+    },
     transcript: {
       es: [
         'Hola, soy Alexis. Hago páginas web para negocios pequeños en Puerto Rico.',

@@ -15,6 +15,7 @@ Cloudflare.
 | `npm run check:launch` | Lists everything that still has to be real before launch.                                        |
 | `npm test`             | Unit tests (content rules, links, SEO, security headers).                                        |
 | `npm run test:e2e`     | Browser tests on phone and desktop sizes (build first).                                          |
+| `npm run test:deployed`| Checks a real deployment: `DEPLOY_KIND=preview\|production DEPLOY_URL=https://… npm run test:deployed`. |
 | `npm run capture`      | Screenshots a site at phone, tablet and desktop size for its project card (see below).          |
 
 ## Adding a project
@@ -55,8 +56,10 @@ says exactly what and where.
 - the real WhatsApp and phone number (`src/data/site.ts` → `contact`);
 - El Break's real web address (`src/data/cards/10-el-break.ts` → `liveUrl`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the media: your portrait, the share image, the intro video and its poster,
-  and El Break's before/after screenshots.
+- the media: your portrait, the share image, the intro video with its poster
+  and its captions (`public/media/intro/saludo.es.vtt` and `.en.vtt`, timed to
+  the real recording), El Break's before/after screenshots and its demo
+  captures (`npm run capture` once its real address is in).
 
 Also worth doing:
 
@@ -73,34 +76,53 @@ use only, and a site that advertises your services is commercial — it would
 need the paid plan. Cloudflare's free plan allows it, serves from a location
 in San Juan, and reads the security headers this build generates.
 
-Deploys run from GitHub Actions (`.github/workflows/deploy.yml`), not from
-Cloudflare's own Git builds:
+GitHub Actions does the deploying (`.github/workflows/ci.yml`), to two
+separate Workers so a preview can never replace the real site:
 
-- **Every pull request** gets a preview: a draft build uploaded as a separate
-  version at `https://pr-<number>-portfolio.<subdomain>.workers.dev` (the link
-  is in the job summary), and the browser tests run against it. The real site
-  is not touched.
-- **Every push to `main`** runs the strict `npm run build` and then
-  `wrangler deploy`. That build refuses to run while anything is fake, so
-  until the launch checklist is done this job fails on purpose and nothing
-  fake goes live.
+- **Repository pull requests and pushes to `main`** → the draft build (placeholders allowed, hidden from
+  search engines) goes to the `portfolio-preview` Worker. Its address is in
+  the job's summary, and the job then checks the live preview. This is a public
+  preview URL; `noindex` is not access control. Fork pull requests run tests only.
+  Actions → CI → Run workflow on `main` can refresh the preview without a code change.
+- **Every push to `main`** → the strict build goes to the `portfolio` Worker,
+  on its workers.dev address or your domain. The strict build refuses to exist while anything is fake or
+  missing, so until the "Before launch" list is done this job fails on
+  purpose and nothing is deployed — the log lists what is left. After a
+  deploy it checks the real domain (pages, contact links, share images,
+  media, demos, the video playing) and measures loading speed: 3 runs on a
+  simulated phone, median largest paint under 2 seconds (`lighthouserc.json`).
 
 One-time setup:
 
-1. Cloudflare → **My Profile → API Tokens → Create Token**, template **Edit
-   Cloudflare Workers**, for this account. In GitHub: **Settings → Secrets and
-   variables → Actions**, add it as `CLOUDFLARE_API_TOKEN`, and your account ID
-   (in the dashboard URL, or Workers & Pages → Account details) as
+1. **Cloudflare API token.** Cloudflare dashboard → My Profile → API Tokens →
+   Create Token → template "Edit Cloudflare Workers". Also copy your Account
+   ID (Workers & Pages overview, right column).
+2. **GitHub secrets.** This repository → Settings → Secrets and variables →
+   Actions → New repository secret: `CLOUDFLARE_API_TOKEN` and
    `CLOUDFLARE_ACCOUNT_ID`.
-2. On the `portfolio` Worker in Cloudflare: **Settings → Build → Disconnect**,
-   so Cloudflare doesn't build it a second time.
-3. At launch: **Settings → Domains & Routes → Add → Custom domain** with your
-   domain (it has to use Cloudflare for its DNS), and put the same domain in
-   `src/data/site.ts`. The Worker has no public workers.dev address
-   (`workers_dev: false` in `wrangler.jsonc`), so the domain is the only way in.
+3. **Turn off Cloudflare's own builds.** Workers & Pages → `portfolio` →
+   Settings → Build → Disconnect. Until you do, Cloudflare keeps deploying
+   every push itself — including the draft to the real site.
+4. **Keep production offline until launch.** On `portfolio`, leave its
+   workers.dev address disabled and do not attach a custom domain while an
+   old draft is deployed. Keep the Worker; there is no need to delete it.
+   Only a successful strict production deployment re-enables its address.
+5. **Choose the launch address.** A paid domain is optional. You can use
+   `https://portfolio.elnenealexis72.workers.dev` as `src/data/site.ts` → `url`.
+   If you later choose a custom domain, attach it to `portfolio` under
+   Domains & Routes and update the same content setting.
 
-To run the browser tests against any deployment yourself:
-`E2E_BASE_URL=https://your-preview-url npm run test:e2e`.
+There is only one deployment workflow: `.github/workflows/ci.yml`. Do not
+reintroduce `deploy.yml` or reconnect Cloudflare Git builds. Wrangler is pinned
+in `package-lock.json`; local checks and Actions use the same installed version.
+
+During setup, a red **production** job listing missing launch content is expected.
+The **verify** and **preview** jobs must pass independently. Inspect their logs
+before changing tokens or reconnecting Cloudflare. Never put API token values in
+the repository or a chat message.
+
+To check a deployment by hand, for example a preview:
+`DEPLOY_KIND=preview DEPLOY_URL=https://portfolio-preview.<account>.workers.dev npm run test:deployed`.
 
 ## How it is put together
 

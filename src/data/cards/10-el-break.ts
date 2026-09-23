@@ -51,6 +51,23 @@ const card: ProjectCard = {
       en: 'El Break Food Truck’s live website',
     },
     framingCheckedOn: '2026-09-19',
+    // Behind the demo's "Capturas" switch, for when the frame stays blank.
+    // TODO(alexis): take them once the real URL is in, then describe each:
+    //   npm run capture -- <liveUrl> el-break
+    shots: {
+      phone: {
+        src: 'el-break/phone.webp',
+        alt: { es: 'El sitio de El Break en un teléfono.', en: 'The El Break site on a phone.' },
+      },
+      tablet: {
+        src: 'el-break/tablet.webp',
+        alt: { es: 'El sitio de El Break en una tableta.', en: 'The El Break site on a tablet.' },
+      },
+      desktop: {
+        src: 'el-break/desktop.webp',
+        alt: { es: 'El sitio de El Break en una computadora.', en: 'The El Break site on a computer.' },
+      },
+    },
   },
 
   outcomes: [

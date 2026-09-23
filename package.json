@@ -15,6 +15,7 @@
     "check:launch": "vitest run --mode launch",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:deployed": "playwright test --config playwright.deployed.config.ts",
     "capture": "node scripts/capture.mjs"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@playwright/test": "1.56.1",
     "sharp": "^0.35.4",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "wrangler": "4.136.3"
   }
 }

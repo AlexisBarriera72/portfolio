@@ -54,7 +54,12 @@ function fixture() {
     heading: l('El Break'),
     client: { name: 'El Break', kind: l('Food truck'), city: 'Yauco' },
     beforeAfter: { before: img('antes.webp'), after: img('despues.webp') },
-    demo: { mode: 'live', title: l('demo'), framingCheckedOn: '2026-09-01' },
+    demo: {
+      mode: 'live',
+      title: l('demo'),
+      framingCheckedOn: '2026-09-01',
+      shots: { phone: img('live/phone.webp'), tablet: img('live/tablet.webp'), desktop: img('live/desktop.webp') },
+    },
     outcomes: [l('Toma órdenes')],
     liveUrl: 'https://elbreak.pr',
   };
@@ -120,7 +125,7 @@ function entriesOf(f: Fixture): CardEntry[] {
 const TODAY = '2026-09-22';
 
 /** Runs the validator on a fixture after `change` breaks one thing in it. */
-type Disk = Pick<ValidateOptions, 'fileSize' | 'imageSize'>;
+type Disk = Pick<ValidateOptions, 'fileSize' | 'imageSize' | 'readText'>;
 
 /** Every file exists; every image is a 780×1688 phone screenshot. */
 const fullDisk: Disk = { fileSize: () => 1000, imageSize: () => ({ width: 780, height: 1688 }) };
@@ -313,6 +318,40 @@ describe('validate — launch checks (strict)', () => {
       { ...fullDisk, imageSize: (p) => (p === 'shots/tablet.webp' ? undefined : { width: 780, height: 1688 }) },
     );
     expect(problems).toEqual(['missing image src/assets/media/shots/tablet.webp']);
+  });
+
+  it('checks the fallback screenshots of a live demo exist', () => {
+    const problems = problemsAfter(() => {}, true, {
+      ...fullDisk,
+      imageSize: (p) => (p === 'live/desktop.webp' ? undefined : { width: 780, height: 1688 }),
+    });
+    expect(problems).toEqual(['missing image src/assets/media/live/desktop.webp']);
+  });
+
+  it('requires captions and a transcript on a clip with sound', () => {
+    const problems = problemsAfter((f) => {
+      // As a card file that skipped its type annotation would.
+      (f.intro.clip as { sound?: boolean }).sound = true;
+    });
+    expect(problems.join('\n')).toMatch(/has sound, so it needs captions/);
+    expect(problems.join('\n')).toMatch(/has sound, so it needs a transcript/);
+  });
+
+  it('checks caption files are real WebVTT', () => {
+    const spoken = (f: Fixture) => {
+      f.intro.clip = {
+        ...f.intro.clip,
+        sound: true,
+        captions: { es: '/media/intro.es.vtt', en: '/media/intro.en.vtt' },
+        transcript: { es: ['Hola'], en: ['Hi'] },
+      };
+    };
+    const vtt = (text: string) => ({ ...fullDisk, readText: () => text });
+    expect(problemsAfter(spoken, true, vtt('WEBVTT\n\n00:00.000 --> 00:02.000\nHola'))).toEqual([]);
+    expect(problemsAfter(spoken, true, vtt('\uFEFFWEBVTT\n'))).toEqual([]);
+    expect(problemsAfter(spoken, true, vtt('1\n00:00:00,000 --> 00:00:02,000\nHola')).join('\n')).toMatch(
+      /intro\.es\.vtt is not a WebVTT file/,
+    );
   });
 
   it('rejects before/after shots of different sizes', () => {

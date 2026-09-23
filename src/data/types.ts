@@ -54,26 +54,38 @@ export interface Img {
  * Each file must stay under 2MB. The production build measures the real files
  * (see validate.ts), so there is no size to type in here and keep in sync.
  */
-export interface Clip {
+interface ClipBase {
   webm: PublicPath;
   mp4: PublicPath;
   /** Shown until the clip plays, and whenever it is not the active card. */
   poster: ImagePath;
   posterAlt: L10n;
-  /** The clip has speech or sound worth hearing — shows an unmute button. */
-  sound?: boolean;
-  /**
-   * WebVTT caption file per locale. The clips autoplay muted, so a talking
-   * clip without captions is a person moving their mouth in silence.
-   */
+}
+
+/**
+ * A clip with speech. Captions and a transcript are required: the clip starts
+ * muted, and some visitors cannot hear it at all — without them it is a person
+ * moving their mouth in silence. The production build checks the caption
+ * files exist and are WebVTT.
+ */
+export interface SpokenClip extends ClipBase {
+  /** Shows an unmute button. */
+  sound: true;
+  /** WebVTT caption file per locale, e.g. "/media/intro/saludo.es.vtt". */
+  captions: L10n<PublicPath>;
+  /** What is said, shown under the video behind a "read it" disclosure. */
+  transcript: L10nText;
+}
+
+/** A clip without speech (a screen recording): captions are optional. */
+export interface SilentClip extends ClipBase {
+  sound?: false;
   captions?: L10n<PublicPath>;
-  /**
-   * What is said or shown. Rendered as visually-hidden text next to the video
-   * so the content exists for screen readers and for crawlers, which never
-   * play the file.
-   */
+  /** What is shown, for anyone who cannot see it play. */
   transcript?: L10nText;
 }
+
+export type Clip = SpokenClip | SilentClip;
 
 /* --------------------------------------------------------------------- tabs */
 
@@ -202,6 +214,13 @@ export type Demo =
       title: L10n;
       /** ISO date (YYYY-MM-DD) you last verified the site allows framing. */
       framingCheckedOn: string;
+      /**
+       * Captures at each device width, behind the demo's "Capturas" switch.
+       * A frame that stays blank (the site is down, started refusing framing,
+       * or the visitor's network blocks it) can't be detected reliably, so
+       * the switch is always offered instead.
+       */
+      shots: DemoShots;
     }
   | {
       mode: 'recorded';
@@ -214,12 +233,17 @@ export type Demo =
        * Real screenshots of the site at each device width — for a site that
        * refuses to be framed. The device buttons swap the picture, so the
        * layout change still shows; no video to record or keep under 2 MB.
-       * `npm run capture -- <url> <slug>` takes all three.
        */
       mode: 'screenshots';
       reason: DemoFallbackReason;
-      shots: Record<DeviceId, Img>;
+      shots: DemoShots;
     };
+
+/**
+ * One screenshot of the site per device width, all taken the same day.
+ * `npm run capture -- <url> <slug>` takes all three.
+ */
+export type DemoShots = Record<DeviceId, Img>;
 
 /** Why a demo is not live, kept on the record so the choice can be revisited. */
 export type DemoFallbackReason = 'x-frame-options' | 'frame-ancestors' | 'too-heavy' | 'other';

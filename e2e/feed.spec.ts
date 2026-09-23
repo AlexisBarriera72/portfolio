@@ -1,26 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
- * Behaviour of the built feed. Runs against a draft build, so media files are
- * missing on purpose: requests for them 404 and images render as labelled
- * placeholders. Those 404s are the only console errors allowed.
+ * Behaviour of the built feed, against a draft build. Every test is guarded
+ * (./fixtures.ts): any failed request or console error fails it, except the
+ * exact files the draft declares missing in /draft-missing.json.
  */
 
 const LIVE_DEMO = 'https://elbreak.example';
-
-/** Collects console errors and CSP violations, ignoring the known-missing media. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('console', (msg) => {
-    if (msg.type() !== 'error') return;
-    const text = msg.text();
-    if (/status of 404/.test(text)) return; // draft media not added yet
-    errors.push(text);
-  });
-  page.on('pageerror', (err) => errors.push(String(err)));
-  return errors;
-}
 
 /** The "Para ti" feed, in order. */
 const PARA_TI = [
@@ -47,15 +35,25 @@ const offsetFromBar = (page: Page, slug: string) =>
     return Math.round(document.getElementById(id)!.getBoundingClientRect().top - bar);
   }, slug);
 
+/** Serve a real WebM and caption file in place of the intro media the draft doesn't have yet. */
+async function withRealIntroMedia(page: Page) {
+  await page.route('**/media/intro/saludo.webm', (route) =>
+    route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' }),
+  );
+  await page.route('**/media/intro/saludo.*.vtt', (route) =>
+    route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' }),
+  );
+}
+
+const introVideo = (page: Page) => page.locator('#inicio video');
+
 test.describe('feed', () => {
   test('home starts at the intro, with the right title and language', async ({ page }) => {
-    const errors = watchErrors(page);
     await page.goto('/');
     await expect(page).toHaveTitle('Alexis · Páginas web en Ponce, PR');
     await expect(page.locator('html')).toHaveAttribute('lang', 'es-PR');
     await expect(page.locator('#inicio h2')).toBeVisible();
     expect(await visibleSlugs(page)).toEqual(PARA_TI);
-    expect(errors).toEqual([]);
   });
 
   test('a card page opens on its card', async ({ page }) => {
@@ -90,6 +88,211 @@ test.describe('feed', () => {
     await page.locator('#inicio').getByRole('link', { name: 'Ver precios' }).click();
     await expect(page).toHaveURL(/\/precios\/$/);
     await expect.poll(() => offsetFromBar(page, 'precios')).toBeLessThanOrEqual(2);
+  });
+});
+
+/** Resolves once the page has stopped scrolling (and the observer has had a frame to react). */
+const settle = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let last = scrollY;
+        let still = 0;
+        const tick = () => {
+          still = scrollY === last ? still + 1 : 0;
+          last = scrollY;
+          if (still >= 6) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+
+/** Tag every control in the shown cards (outside dialogs and closed disclosures) with data-reach. */
+const tagControls = (page: Page) =>
+  page.evaluate(() => {
+    let n = 0;
+    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+      if (getComputedStyle(card).display === 'none') continue;
+      const controls = card.querySelectorAll<HTMLElement>(
+        'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
+      );
+      for (const el of controls) {
+        // The card's own <article> is focusable too, but it is the card, not a control in it.
+        if (el.matches('.card-body') || el.closest('dialog') || !el.checkVisibility()) continue;
+        el.dataset.reach = `${card.id}: ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)} #${n++}`;
+      }
+    }
+    return n;
+  });
+
+/** The tagged controls that are wholly on screen, below the sticky bar. */
+const fullyOnScreen = (page: Page) =>
+  page.evaluate(() => {
+    const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
+    return [...document.querySelectorAll<HTMLElement>('[data-reach]')]
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height > 0 && r.top >= top - 1 && r.bottom <= innerHeight + 1;
+      })
+      .map((el) => el.dataset.reach!);
+  });
+
+/**
+ * Press `key` (or click `button`) until `done`, and record what came on
+ * screen. Returns the controls never seen, the order cards became active in,
+ * and every announcement made while the card did NOT change (should be none).
+ */
+async function readThrough(page: Page, press: () => Promise<void>, done: () => Promise<boolean>) {
+  const all = new Set<string>();
+  const seen = new Set<string>();
+  for (const id of await page.locator('[data-reach]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.reach!))) all.add(id);
+  for (const id of await fullyOnScreen(page)) seen.add(id);
+  const path = [new URL(page.url()).pathname];
+  const strayAnnouncements: string[] = [];
+  const status = page.locator('[data-feed-status]');
+  for (let i = 0; i < 400 && !(await done()); i++) {
+    const before = await status.textContent();
+    await press();
+    await settle(page);
+    for (const id of await fullyOnScreen(page)) seen.add(id);
+    const now = new URL(page.url()).pathname;
+    if (now !== path.at(-1)) path.push(now);
+    else if ((await status.textContent()) !== before) strayAnnouncements.push((await status.textContent()) ?? '');
+  }
+  return { unseen: [...all].filter((id) => !seen.has(id)), path, strayAnnouncements };
+}
+
+/** Like a larger default font in the browser's settings. (Via the CSSOM: the CSP rightly blocks a <style> tag.) */
+const enlargeText = (page: Page, size: string) =>
+  page.evaluate((s) => {
+    document.documentElement.style.fontSize = s;
+  }, size);
+
+const PARA_TI_PATHS = PARA_TI.map((slug) => (slug === 'inicio' ? '/' : `/${slug}/`));
+const atBottom = (page: Page) => page.evaluate(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 1);
+const atTop = (page: Page) => page.evaluate(() => scrollY <= 0);
+
+test.describe('keyboard reading', () => {
+  // Short screens and enlarged text make cards taller than the screen.
+  for (const { name, viewport, text } of [
+    { name: 'a 390×844 phone', viewport: { width: 390, height: 844 }, text: '100%' },
+    { name: 'a 360×640 phone', viewport: { width: 360, height: 640 }, text: '100%' },
+    { name: 'a 360×640 phone with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+  ]) {
+    test.describe(name, () => {
+      test.beforeEach(async ({ page }) => {
+        // Instant scrolling keeps hundreds of key presses fast; one test below runs smooth.
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.setViewportSize(viewport);
+        await page.goto('/');
+        await enlargeText(page, text);
+        await settle(page);
+        await tagControls(page);
+      });
+
+      test('PageDown shows every control of every card, in order, before moving on', async ({ page }) => {
+        const run = await readThrough(page, () => page.keyboard.press('PageDown'), () => atBottom(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual(PARA_TI_PATHS);
+        expect(run.strayAnnouncements).toEqual([]);
+      });
+
+      test('PageUp reads back up the same way', async ({ page }) => {
+        await page.keyboard.press('End');
+        await settle(page);
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await settle(page);
+        const run = await readThrough(page, () => page.keyboard.press('PageUp'), () => atTop(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual([...PARA_TI_PATHS].reverse());
+        expect(run.strayAnnouncements).toEqual([]);
+      });
+
+      test('↓ reads through too, a quarter screen at a time', async ({ page }) => {
+        const run = await readThrough(page, () => page.keyboard.press('ArrowDown'), () => atBottom(page));
+        expect(run.unseen).toEqual([]);
+        expect(run.path).toEqual(PARA_TI_PATHS);
+      });
+    });
+  }
+
+  test('with smooth scrolling, PageDown shows the pricing card’s WhatsApp button before leaving it', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto('/precios/');
+    await enlargeText(page, '150%');
+    await settle(page);
+    const whatsapp = page.locator('#precios a.btn-whatsapp');
+    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
+    let shown = false;
+    for (let i = 0; i < 20 && new URL(page.url()).pathname === '/precios/'; i++) {
+      await page.keyboard.press('PageDown');
+      await settle(page);
+      if (new URL(page.url()).pathname !== '/precios/') break;
+      shown ||= await whatsapp.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return r.top >= document.querySelector('.topbar')!.getBoundingClientRect().bottom && r.bottom <= innerHeight;
+      });
+    }
+    expect(shown).toBe(true);
+    await expect(page).toHaveURL(/\/que-incluye\/$/);
+  });
+});
+
+/** Scroll so the top of card `id` sits at `at` (0–1) of the way down the visible area. */
+const placeCardTop = (page: Page, id: string, at: number) =>
+  page.evaluate(
+    ([id, at]) => {
+      const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
+      const target = top + (innerHeight - top) * at;
+      window.scrollBy({ top: document.getElementById(id)!.getBoundingClientRect().top - target, behavior: 'instant' });
+    },
+    [id, at] as const,
+  );
+
+test.describe('active card', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+  });
+
+  /**
+   * Partial scrolls with a card boundary just above and just below the middle
+   * of the visible area, coming from both directions. Snapping is turned off
+   * so each position holds exactly; the active card must be the one under
+   * the middle. `from` is the card above the boundary, `to` the one below.
+   */
+  async function sweep(page: Page, from: string, to: string) {
+    const down = [0.7, 0.55, 0.45, 0.3];
+    for (const at of [...down, ...[...down].reverse()]) {
+      await placeCardTop(page, to, at);
+      await settle(page);
+      const expected = at < 0.5 ? to : from;
+      await expect(page, `boundary at ${at * 100}% of the visible area`).toHaveURL(new RegExp(`/${expected}/$`));
+    }
+  }
+
+  for (const { name, viewport, text } of [
+    { name: 'portrait 390×844', viewport: { width: 390, height: 844 }, text: '100%' },
+    { name: 'landscape 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
+    { name: 'landscape 844×390 with text at 150%', viewport: { width: 844, height: 390 }, text: '150%' },
+  ]) {
+    test(`is the card under the middle of the visible area — ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      await enlargeText(page, text);
+      await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+      await sweep(page, 'el-break', 'consejeria-escolar');
+      await sweep(page, 'precios', 'que-incluye');
+    });
+  }
+
+  test('follows the screen when it rotates', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+    await sweep(page, 'el-break', 'consejeria-escolar');
+    await page.setViewportSize({ width: 844, height: 390 });
+    await sweep(page, 'precios', 'que-incluye');
   });
 });
 
@@ -148,20 +351,87 @@ test.describe('video', () => {
   });
 });
 
-test.describe('autoplay', () => {
-  const introPaused = (page: Page) => page.locator('#inicio video').evaluate((v: HTMLVideoElement) => v.paused);
-
-  test('the active card’s clip starts on its own', async ({ page }) => {
+test.describe('intro clip', () => {
+  test('fills the whole intro card, with its controls at the top', async ({ page }) => {
     await page.goto('/');
-    await expect.poll(() => introPaused(page)).toBe(false);
+    const card = await page.locator('#inicio .intro').boundingBox();
+    const clip = await page.locator('#inicio .intro-clip').boundingBox();
+    const controls = await page.locator('#inicio .clip-controls').boundingBox();
+    expect(clip!.height).toBeGreaterThan(card!.height - 2);
+    expect(controls!.y - card!.y).toBeLessThan(24);
+  });
+});
+
+test.describe('captions and transcript', () => {
+  test('a spoken clip has a captions toggle and a visible transcript', async ({ page }) => {
+    await withRealIntroMedia(page);
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    const cc = intro.getByRole('button', { name: 'Subtítulos' });
+    await expect(cc).toHaveAttribute('aria-pressed', 'true');
+    await expect(intro.locator('track[kind="captions"]')).toHaveAttribute('label', 'Español');
+    await cc.click();
+    await expect(cc).toHaveAttribute('aria-pressed', 'false');
+
+    const transcript = intro.getByText('Leer lo que dice el video');
+    await expect(transcript).toBeVisible();
+    await expect(intro.getByText(/Hola, soy Alexis/)).toBeHidden();
+    await transcript.click();
+    await expect(intro.getByText(/Hola, soy Alexis/)).toBeVisible();
+  });
+});
+
+
+test.describe('playback', () => {
+  test('the active card’s clip really plays, with its captions', async ({ page }) => {
+    await withRealIntroMedia(page);
+    await page.goto('/');
+    await expect.poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 10_000 }).toBeGreaterThan(0.5);
+    await expect(page.locator('#inicio .clip')).toHaveClass(/is-playing/);
+    await expect
+      .poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.textTracks[0]?.cues?.length ?? 0))
+      .toBeGreaterThan(0);
+    await expect(page.locator('#inicio [data-clip-error-text]')).toHaveText('');
   });
 
   test('nothing autoplays when the visitor prefers reduced motion', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.locator('#inicio video source').first()).toHaveAttribute('src', /.+/);
-    await page.waitForTimeout(300);
-    expect(await introPaused(page)).toBe(true);
+    await page.waitForTimeout(800);
+    expect(await introVideo(page).evaluate((v: HTMLVideoElement) => [v.paused, v.currentTime])).toEqual([true, 0]);
+    // The play button still works.
+    await page.locator('#inicio').getByRole('button', { name: 'Reproducir el video' }).click();
+    await expect.poll(() => introVideo(page).evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0.3);
+  });
+
+  test('a missing video says so, disables its controls and offers a retry', async ({ page }) => {
+    // The draft really has no intro video: both files 404 (declared in /draft-missing.json).
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');
+    await expect(intro.getByRole('button', { name: /video/ })).toBeDisabled();
+    await expect(intro.getByRole('button', { name: 'Activar el sonido' })).toBeDisabled();
+    const retry = intro.getByRole('button', { name: 'Reintentar' });
+    await expect(retry).toBeVisible();
+    await retry.click();
+    // Still missing: back to the same honest state, not a silent spinner.
+    await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');
+  });
+
+  test('blocked autoplay is not an error: the clip waits with its play button', async ({ page }) => {
+    await withRealIntroMedia(page);
+    await page.addInitScript(() => {
+      HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('blocked', 'NotAllowedError'));
+    });
+    await page.goto('/');
+    await page.waitForTimeout(800);
+    const intro = page.locator('#inicio');
+    await expect(intro.locator('[data-clip-error-text]')).toHaveText('');
+    await expect(intro.getByRole('button', { name: 'Reintentar' })).toBeHidden();
+    await expect(intro.getByRole('button', { name: 'Reproducir el video' })).toBeEnabled();
+    await expect(intro.locator('.clip')).not.toHaveClass(/is-error/);
   });
 });
 
@@ -179,7 +449,6 @@ test.describe('project card', () => {
   });
 
   test('the demo loads the live site only when opened, and unloads it on close', async ({ page }) => {
-    const errors = watchErrors(page);
     await page.route(`${LIVE_DEMO}/**`, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>demo</title><p>live site</p>' }),
     );
@@ -203,7 +472,6 @@ test.describe('project card', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(iframe).toHaveAttribute('src', 'about:blank');
-    expect(errors).toEqual([]); // includes CSP violations: frame-src must allow the demo
   });
 });
 
@@ -236,6 +504,26 @@ test.describe('screenshots demo', () => {
     await expect(dialog.getByRole('img', { name: /En una computadora/ })).toBeVisible();
     await expect(dialog.getByRole('img', { name: /En un teléfono/ })).toBeHidden();
   });
+
+  test('each capture fits whole inside the dialog', async ({ page }) => {
+    await page.goto('/melanie-creations/');
+    await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    const stage = dialog.locator('[data-demo-shots]');
+    for (const [device, alt] of [
+      ['Teléfono', /En un teléfono/],
+      ['Tableta', /En una tableta/],
+      ['Computadora', /En una computadora/],
+    ] as const) {
+      await dialog.getByRole('button', { name: new RegExp(device) }).click();
+      const shot = dialog.getByRole('img', { name: alt });
+      await expect(shot).toBeVisible();
+      await expect(shot).toHaveJSProperty('complete', true);
+      const [box, area] = [await shot.boundingBox(), await stage.boundingBox()];
+      expect(box!.y + box!.height, device).toBeLessThanOrEqual(area!.y + area!.height + 0.5);
+      expect(box!.x + box!.width, device).toBeLessThanOrEqual(area!.x + area!.width + 0.5);
+    }
+  });
 });
 
 test.describe('live demo of a real client site', () => {
@@ -247,6 +535,55 @@ test.describe('live demo of a real client site', () => {
     await page.goto('/consejeria-escolar/');
     await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
     await expect(page.locator('#demo-consejeria-escolar iframe')).toHaveAttribute('src', url);
+  });
+
+  test('a visible switch trades the frame for screenshots, and back', async ({ page }) => {
+    const url = 'https://consejeria-escolar.vercel.app';
+    let loads = 0;
+    await page.route(`${url}/**`, (route) => {
+      loads += 1;
+      return route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><title>demo</title>' });
+    });
+    await page.goto('/consejeria-escolar/');
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Consejería Escolar' });
+    const iframe = dialog.locator('iframe');
+    const live = dialog.getByRole('button', { name: 'En vivo' });
+    const shots = dialog.getByRole('button', { name: 'Capturas' });
+    const phoneShot = dialog.getByRole('img', { name: /^En un teléfono/ });
+
+    await expect(iframe).toHaveAttribute('src', url);
+    await expect(live).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByText('¿No carga? Mira las capturas.')).toBeVisible();
+    await expect(phoneShot).toBeHidden();
+    await expect.poll(() => loads).toBe(1);
+
+    // Screenshots: the site is unloaded, the capture for the chosen size shows.
+    await shots.click();
+    await expect(shots).toHaveAttribute('aria-pressed', 'true');
+    await expect(live).toHaveAttribute('aria-pressed', 'false');
+    await expect(iframe).toHaveAttribute('src', 'about:blank');
+    await expect(iframe).toBeHidden();
+    await expect(phoneShot).toBeVisible();
+
+    // The device buttons drive the screenshots too.
+    await dialog.getByRole('button', { name: /Tableta/ }).click();
+    await expect(dialog.getByRole('img', { name: /^En una tableta/ })).toBeVisible();
+    await expect(phoneShot).toBeHidden();
+
+    // The choice sticks across closing and reopening, without loading the site.
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    await expect(shots).toHaveAttribute('aria-pressed', 'true');
+    await expect(iframe).toHaveAttribute('src', 'about:blank');
+
+    // Back to live: the site loads again, at the size chosen meanwhile.
+    await live.click();
+    await expect(iframe).toBeVisible();
+    await expect(iframe).toHaveAttribute('src', url);
+    await expect(iframe).toHaveAttribute('width', '820');
+    expect(await iframe.evaluate((el) => el.style.transform)).toMatch(/^scale\(0\.\d+\)$/);
+    await expect.poll(() => loads).toBe(2);
   });
 });
 
@@ -290,11 +627,25 @@ test.describe('desktop', () => {
     await expect(page).toHaveURL(/\/el-break\/$/);
     await expect(up).toBeEnabled();
   });
+
+  test('the arrows read through cards taller than the window, then stop at the end', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto('/');
+    await enlargeText(page, '150%');
+    await settle(page);
+    await tagControls(page);
+    const down = page.getByRole('button', { name: 'Siguiente' });
+    const run = await readThrough(page, () => down.click(), () => atBottom(page));
+    expect(run.unseen).toEqual([]);
+    expect(run.path).toEqual(PARA_TI_PATHS);
+    expect(run.strayAnnouncements).toEqual([]);
+    await expect(down).toBeDisabled();
+  });
 });
 
 test.describe('security headers', () => {
   test('pages are served with a strict CSP that the page itself does not violate', async ({ page }) => {
-    const errors = watchErrors(page);
     const response = await page.goto('/el-break/?tab=local');
     const csp = response?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("frame-ancestors 'none'");
@@ -305,12 +656,12 @@ test.describe('security headers', () => {
     // The inline tab script and start script ran under the policy:
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
     expect(await visibleSlugs(page)).toEqual(['el-break', 'consejeria-escolar', 'fin']);
-    expect(errors).toEqual([]);
   });
 });
 
 test.describe('404', () => {
-  test('unknown paths get the bilingual not-found page', async ({ page }) => {
+  test('unknown paths get the bilingual not-found page', async ({ page, guard }) => {
+    guard.allow('/no-existe/');
     const response = await page.goto('/no-existe/');
     expect(response?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();

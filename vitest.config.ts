@@ -5,6 +5,6 @@ import { getViteConfig } from 'astro/config';
 // build does (image files resolve to their metadata, import.meta.glob works).
 export default getViteConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });

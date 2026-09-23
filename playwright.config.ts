@@ -15,6 +15,8 @@ const external = process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: 'e2e',
+  // Checks against a real deployment have their own config: playwright.deployed.config.ts.
+  testIgnore: 'deployed.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -27,7 +29,7 @@ export default defineConfig({
   webServer: external
     ? undefined
     : {
-        command: 'node e2e/serve.mjs dist 4322',
+        command: 'node scripts/serve.mjs dist 4322',
         url: 'http://127.0.0.1:4322/',
         reuseExistingServer: !process.env.CI,
       },

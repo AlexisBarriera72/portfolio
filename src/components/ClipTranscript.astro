@@ -1,0 +1,32 @@
+---
+/**
+ * The words of a clip as visible text, behind a native disclosure: for anyone
+ * watching muted, anyone who cannot hear it, and anyone who would rather read.
+ * Native <details>, so it works without JavaScript and screen readers announce
+ * it as expandable.
+ */
+import type { Clip, Locale } from '../data/types';
+import { t } from '../i18n';
+
+interface Props {
+  clip: Clip;
+  locale: Locale;
+  class?: string;
+}
+
+const { clip, locale, class: className } = Astro.props;
+const lines = clip.transcript?.[locale];
+---
+
+{
+  lines && (
+    <details class:list={['transcript', className]}>
+      <summary>{t(locale).video.transcriptShow}</summary>
+      <div class="transcript-text">
+        {lines.map((line) => (
+          <p>{line}</p>
+        ))}
+      </div>
+    </details>
+  )
+}
