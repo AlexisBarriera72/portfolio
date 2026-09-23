@@ -61,7 +61,7 @@ const RESERVED_SLUGS: readonly string[] = [...LOCALES, '404', 'media'];
  * TODO is matched case-sensitively on purpose: "todo" is an ordinary Spanish
  * word ("Eso es todo") and must not trip the check.
  */
-function isPlaceholder(value: string): boolean {
+export function isPlaceholder(value: string): boolean {
   return /\bTODO\b/.test(value) || /example\.(com|org|net)|\.example\b|555-?1234/i.test(value);
 }
 

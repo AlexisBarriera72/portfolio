@@ -1,26 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
- * Behaviour of the built feed. Runs against a draft build, so media files are
- * missing on purpose: requests for them 404 and images render as labelled
- * placeholders. Those 404s are the only console errors allowed.
+ * Behaviour of the built feed, against a draft build. Every test is guarded
+ * (./fixtures.ts): any failed request or console error fails it, except the
+ * exact files the draft declares missing in /draft-missing.json.
  */
 
 const LIVE_DEMO = 'https://elbreak.example';
-
-/** Collects console errors and CSP violations, ignoring the known-missing media. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('console', (msg) => {
-    if (msg.type() !== 'error') return;
-    const text = msg.text();
-    if (/status of 404/.test(text)) return; // draft media not added yet
-    errors.push(text);
-  });
-  page.on('pageerror', (err) => errors.push(String(err)));
-  return errors;
-}
 
 /** The "Para ti" feed, in order. */
 const PARA_TI = [
@@ -49,13 +37,11 @@ const offsetFromBar = (page: Page, slug: string) =>
 
 test.describe('feed', () => {
   test('home starts at the intro, with the right title and language', async ({ page }) => {
-    const errors = watchErrors(page);
     await page.goto('/');
     await expect(page).toHaveTitle('Alexis · Páginas web en Ponce, PR');
     await expect(page.locator('html')).toHaveAttribute('lang', 'es-PR');
     await expect(page.locator('#inicio h2')).toBeVisible();
     expect(await visibleSlugs(page)).toEqual(PARA_TI);
-    expect(errors).toEqual([]);
   });
 
   test('a card page opens on its card', async ({ page }) => {
@@ -179,7 +165,6 @@ test.describe('project card', () => {
   });
 
   test('the demo loads the live site only when opened, and unloads it on close', async ({ page }) => {
-    const errors = watchErrors(page);
     await page.route(`${LIVE_DEMO}/**`, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>demo</title><p>live site</p>' }),
     );
@@ -203,7 +188,6 @@ test.describe('project card', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(iframe).toHaveAttribute('src', 'about:blank');
-    expect(errors).toEqual([]); // includes CSP violations: frame-src must allow the demo
   });
 });
 
@@ -294,7 +278,6 @@ test.describe('desktop', () => {
 
 test.describe('security headers', () => {
   test('pages are served with a strict CSP that the page itself does not violate', async ({ page }) => {
-    const errors = watchErrors(page);
     const response = await page.goto('/el-break/?tab=local');
     const csp = response?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("frame-ancestors 'none'");
@@ -305,12 +288,12 @@ test.describe('security headers', () => {
     // The inline tab script and start script ran under the policy:
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
     expect(await visibleSlugs(page)).toEqual(['el-break', 'consejeria-escolar', 'fin']);
-    expect(errors).toEqual([]);
   });
 });
 
 test.describe('404', () => {
-  test('unknown paths get the bilingual not-found page', async ({ page }) => {
+  test('unknown paths get the bilingual not-found page', async ({ page, guard }) => {
+    guard.allow('/no-existe/');
     const response = await page.goto('/no-existe/');
     expect(response?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: 'Esta página no existe' })).toBeVisible();
