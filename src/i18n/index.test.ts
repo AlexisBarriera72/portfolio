@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { site } from '../content/site';
+import { site } from '../data/site';
 import { alternates, format, formatPrice, localePath, otherLocale, t } from './index';
 
 describe('localePath', () => {

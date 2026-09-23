@@ -2,11 +2,11 @@
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
-import { site } from './src/content/site.ts';
+import { site } from './src/data/site.ts';
 import { t } from './src/i18n/index.ts';
-import { DEFAULT_LOCALE, LOCALES } from './src/content/types.ts';
+import { DEFAULT_LOCALE, LOCALES } from './src/data/types.ts';
 
-// The origin lives in src/content/site.ts, so the sitemap, canonical URLs and
+// The origin lives in src/data/site.ts, so the sitemap, canonical URLs and
 // the JSON-LD cannot disagree about the domain.
 //
 // Locale routing is done by src/i18n (localePath), not by Astro's i18n option,

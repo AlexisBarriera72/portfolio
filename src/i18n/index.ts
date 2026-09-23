@@ -1,5 +1,5 @@
-import { site } from '../content/site';
-import { DEFAULT_LOCALE, LOCALES, type L10n, type Locale } from '../content/types';
+import { site } from '../data/site';
+import { DEFAULT_LOCALE, LOCALES, type L10n, type Locale } from '../data/types';
 import { en } from './en';
 import { es } from './es';
 import type { UIStrings } from './types';

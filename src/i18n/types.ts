@@ -1,9 +1,9 @@
-import type { DeviceId, FeedTab, Tier } from '../content/types';
+import type { DeviceId, FeedTab, Tier } from '../data/types';
 
 /**
  * Every string that is part of the interface rather than the content.
  *
- * Content lives in src/content/ because it changes per card. These change per
+ * Content lives in src/data/ because it changes per card. These change per
  * locale only. Declaring the shape here means src/i18n/en.ts will not compile
  * if it is missing a key that src/i18n/es.ts has.
  *
