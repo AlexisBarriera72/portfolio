@@ -46,7 +46,6 @@ export const es: UIStrings = {
     visitSiteShort: 'Ver el sitio',
     opensInNewTab: 'se abre en una pestaña nueva',
     recordedDemoNote: 'Video del sitio real',
-    clientIn: (city) => `Cliente en ${city}`,
     openDemo: 'Pruébalo',
     watchDemo: 'Míralo funcionar',
     openDemoLabel: (client) => `Probar el sitio de ${client} en teléfono, tableta y computadora`,
@@ -71,6 +70,8 @@ export const es: UIStrings = {
     includesHeading: 'Incluye',
     mostChosen: 'El más pedido',
     afterFirstYear: 'Después del primer año',
+    seeIncludes: 'Qué incluye',
+    close: 'Cerrar',
   },
 
   contact: {

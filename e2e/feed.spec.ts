@@ -18,6 +18,7 @@ const PARA_TI = [
   'melanie-creations',
   'precios',
   'que-incluye',
+  'que-mas-incluye',
   'sobre-mi',
   'contacto',
   'fin',
@@ -76,7 +77,7 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.keyboard.press('ArrowDown');
     await expect(page).toHaveURL(/\/el-break\/$/);
-    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 9: El Break Food Truck');
+    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 10: El Break Food Truck');
     await page.keyboard.press('End');
     await expect(page).toHaveURL(/\/fin\/$/);
     await page.keyboard.press('Home');
@@ -222,7 +223,7 @@ test.describe('keyboard reading', () => {
     await page.goto('/precios/');
     await enlargeText(page, '150%');
     await settle(page);
-    const whatsapp = page.locator('#precios a.btn-whatsapp');
+    const whatsapp = page.locator('#precios .card-body > a.btn-whatsapp');
     expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
     let shown = false;
     for (let i = 0; i < 20 && new URL(page.url()).pathname === '/precios/'; i++) {
@@ -296,13 +297,74 @@ test.describe('active card', () => {
   });
 });
 
+/** The height a card gets: the feed's box if the feed scrolls, else the window below the bar. */
+const panelHeight = (page: Page) =>
+  page.evaluate(() => {
+    const feed = document.querySelector<HTMLElement>('.feed')!;
+    if (feed.scrollHeight > feed.clientHeight + 1 && getComputedStyle(feed).overflowY !== 'visible') return feed.clientHeight;
+    return innerHeight - document.querySelector('.topbar')!.getBoundingClientRect().bottom;
+  });
+
+test.describe('one screen per card', () => {
+  // A card must fit its panel at normal text size — no scrolling inside it.
+  for (const viewport of [
+    { width: 360, height: 640 },
+    { width: 390, height: 844 },
+  ]) {
+    for (const path of ['/', '/en/']) {
+      test(`every card fits at ${viewport.width}×${viewport.height} on ${path}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        const panel = await panelHeight(page);
+        const tooTall = await page.locator('.feed > .card').evaluateAll(
+          (cards, panel) =>
+            cards
+              .filter((c) => getComputedStyle(c).display !== 'none')
+              .map((c) => ({ id: c.id, need: c.querySelector<HTMLElement>('.card-body')!.scrollHeight }))
+              .filter(({ need }) => need > panel + 1)
+              .map(({ id, need }) => `${id} needs ${need}px of ${Math.round(panel)}px`),
+          panel,
+        );
+        expect(tooTall).toEqual([]);
+      });
+    }
+  }
+});
+
+test.describe('pricing', () => {
+  test('each plan opens its full list in a panel, and closing it returns to the card', async ({ page }) => {
+    await page.goto('/precios/');
+    const plan = page.getByRole('button', { name: /Página completa/ });
+    await expect(plan).toHaveAttribute('aria-haspopup', 'dialog');
+    await plan.click();
+    const panel = page.getByRole('dialog', { name: 'Página completa' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Formulario de órdenes o reservaciones')).toBeVisible();
+    await expect(panel.locator('a.btn-whatsapp')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).include('#plan-precios-completa').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(plan).toBeFocused();
+    await expect(page).toHaveURL(/\/precios\/$/);
+
+    // A click on the backdrop closes it too.
+    await page.getByRole('button', { name: /Mantenimiento/ }).click();
+    const other = page.getByRole('dialog', { name: 'Mantenimiento' });
+    await expect(other).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(other).toBeHidden();
+  });
+});
+
 test.describe('tabs', () => {
   test('filter the feed, go into the URL, and Back undoes them', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Precios' }).click();
     await expect(page).toHaveURL(/\/precios\/\?tab=precios$/);
     await expect(page.getByRole('tab', { name: 'Precios' })).toHaveAttribute('aria-selected', 'true');
-    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'que-mas-incluye', 'fin']);
     await expect(page.locator('[data-lang-link]')).toHaveAttribute('href', '/en/precios/?tab=precios');
 
     await page.goBack();

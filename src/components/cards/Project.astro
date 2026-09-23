@@ -33,7 +33,7 @@ const DEMO_BUTTON: Record<ProjectCard['demo']['mode'], string> = {
 ---
 
 <header class="flex flex-col gap-1">
-  <p class="eyebrow">{client.kind[locale]} · {ui.clientIn(client.city)}</p>
+  <p class="eyebrow">{client.kind[locale]} · {client.city}</p>
   <h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
 </header>
 

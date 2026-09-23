@@ -69,7 +69,6 @@ export interface UIStrings {
     opensInNewTab: string;
     /** Shown over a recorded demo when the site cannot be embedded. */
     recordedDemoNote: string;
-    clientIn: (city: string) => string;
     /** Button that opens the device demo (live site). */
     openDemo: string;
     /** Button that opens the device demo when it is a recording. */
@@ -101,6 +100,9 @@ export interface UIStrings {
     mostChosen: string;
     /** Heading over the year-two cost line. */
     afterFirstYear: string;
+    /** The button that opens a plan's full list in a panel. */
+    seeIncludes: string;
+    close: string;
   };
 
   contact: {

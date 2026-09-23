@@ -1,4 +1,10 @@
 ---
+/**
+ * Prices at a glance, on one screen: each plan is one short row — a button
+ * (name, "desde" price, how often) that opens the plan's full list in a panel,
+ * a native <dialog> (src/scripts/dialogs.ts). The card never grows past the
+ * screen, and enlarged text scrolls inside the panel instead of the feed.
+ */
 import type { Locale, PricingCard } from '../../data/types';
 import { formatPrice, t } from '../../i18n';
 import Cta from '../Cta.astro';
@@ -11,33 +17,66 @@ interface Props {
 
 const { card, locale } = Astro.props;
 const ui = t(locale).pricing;
+const panelId = (tierId: string) => `plan-${card.slug}-${tierId}`;
 ---
 
 <h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
 
 <ul class="tiers">
   {
-    card.tiers.map((tier) => (
-      <li class:list={['tier', { 'tier-featured': tier.featured }]}>
-        <div class="tier-head">
-          <h3 class="tier-name">{tier.name[locale]}</h3>
-          {tier.featured && <span class="tier-badge">{ui.mostChosen}</span>}
-        </div>
-        <p class="tier-price">
+    card.tiers.map((tier) => {
+      const id = panelId(tier.id);
+      const price = (
+        <span class="tier-price">
           <span class="tier-from">{ui.from}</span>
           <strong>{formatPrice(tier.priceFrom, locale)}</strong>
           <span class="tier-billing">{ui.billing[tier.billing]}</span>
-        </p>
-        <ul class="tier-includes" aria-label={`${ui.includesHeading}: ${tier.name[locale]}`}>
-          {tier.includes.map((item) => (
-            <li>
-              <Icon name="check" size={16} class="outcome-icon" />
-              <span>{item[locale]}</span>
-            </li>
-          ))}
-        </ul>
-      </li>
-    ))
+        </span>
+      );
+      return (
+        <li>
+          <button
+            type="button"
+            class:list={['tier', { 'tier-featured': tier.featured }]}
+            data-dialog-open={id}
+            aria-haspopup="dialog"
+            aria-controls={id}
+          >
+            <span class="tier-name">
+              {tier.name[locale]}
+              {tier.featured && <span class="tier-badge">{ui.mostChosen}</span>}
+            </span>
+            {price}
+            <span class="tier-more">{ui.seeIncludes} ›</span>
+          </button>
+          <dialog id={id} class="panel" aria-labelledby={`${id}-title`}>
+            <div class="panel-bar">
+              <h3 id={`${id}-title`} class="panel-title">
+                {tier.name[locale]}
+              </h3>
+              <form method="dialog">
+                <button type="submit" class="demo-close" aria-label={ui.close}>
+                  <Icon name="close" />
+                </button>
+              </form>
+            </div>
+            <div class="panel-body">
+              {price}
+              <h4 class="subheading">{ui.includesHeading}</h4>
+              <ul class="tier-includes">
+                {tier.includes.map((item) => (
+                  <li>
+                    <Icon name="check" size={16} class="outcome-icon" />
+                    <span>{item[locale]}</span>
+                  </li>
+                ))}
+              </ul>
+              <Cta cta={card.cta} locale={locale} class="self-start" />
+            </div>
+          </dialog>
+        </li>
+      );
+    })
   }
 </ul>
 

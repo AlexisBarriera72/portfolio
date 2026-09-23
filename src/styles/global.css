@@ -24,6 +24,11 @@
   --bar-h: 3.5rem;
   /* The phone-shaped column on desktop. */
   --col-w: 27.5rem;
+  /* The floating WhatsApp button: size, distance from the bottom, and the
+     strip every card keeps clear for it. */
+  --fab-size: 3.5rem;
+  --fab-gap: 1rem;
+  --fab-room: calc(var(--fab-size) + var(--fab-gap) + 0.5rem);
   color-scheme: light;
 }
 
@@ -99,7 +104,8 @@ body {
   flex: 1;
   flex-direction: column;
   gap: 0.9rem;
-  padding: 1.25rem 1.25rem 5.25rem; /* bottom room for the WhatsApp button */
+  /* Bottom room for the WhatsApp button: its height, its offset and a little air. */
+  padding: 1.25rem 1.25rem calc(var(--fab-room) + env(safe-area-inset-bottom));
   outline-offset: -3px;
 }
 
@@ -278,11 +284,11 @@ html:not([data-tab]) .tabs {
   position: fixed;
   z-index: 15;
   right: max(1rem, calc((100vw - var(--col-w)) / 2 + 1rem));
-  bottom: max(1rem, env(safe-area-inset-bottom));
+  bottom: calc(var(--fab-gap) + env(safe-area-inset-bottom));
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: var(--fab-size);
+  height: var(--fab-size);
   border-radius: 999px;
   background: var(--color-whatsapp);
   color: var(--color-whatsapp-ink);
@@ -517,7 +523,7 @@ html:not([data-tab]) .tabs {
 .compare-frame {
   --pos: 50%;
   position: relative;
-  height: clamp(11rem, 31svh, 22rem);
+  height: clamp(11rem, 29svh, 22rem);
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: 1rem;
@@ -597,12 +603,23 @@ html:not([data-tab]) .tabs {
   font-size: 0.925rem;
   color: var(--color-muted);
 }
+/* Sits on the picture, so it costs no line of its own. */
 .compare-hint {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 50%;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-weight: 600;
-  color: var(--color-accent);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.75);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 /* ---------------------------------------------------------------- outcomes */
@@ -649,32 +666,45 @@ html:not([data-tab]) .tabs {
 .tiers {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
+/* One short row per plan, the whole row a button that opens its full list:
+   name (and badge) with "Qué incluye ›" on the right, the price below. */
 .tier {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name more'
+    'price price';
+  align-items: center;
+  gap: 0 0.75rem;
+  width: 100%;
+  padding: 0.5rem 0.9rem;
   border: 1.5px solid var(--color-line);
   border-radius: 1rem;
+  background: var(--color-paper);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tier:hover {
+  border-color: var(--color-accent);
 }
 .tier-featured {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
 }
-.tier-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
 .tier-name {
-  font-size: 1.1rem;
+  grid-area: name;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 .tier-badge {
-  padding: 0.15rem 0.55rem;
+  padding: 0.1rem 0.5rem;
   border-radius: 999px;
   background: var(--color-accent);
   color: #fff;
@@ -682,12 +712,14 @@ html:not([data-tab]) .tabs {
   font-weight: 700;
 }
 .tier-price {
+  grid-area: price;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem;
+  gap: 0 0.35rem;
 }
 .tier-price strong {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
 }
 .tier-from,
@@ -695,9 +727,56 @@ html:not([data-tab]) .tabs {
   font-size: 0.9rem;
   color: var(--color-muted);
 }
-.tier-includes {
-  gap: 0.15rem;
+.tier-more {
+  grid-area: more;
   font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+  white-space: nowrap;
+}
+.tier-includes {
+  gap: 0.35rem;
+}
+
+/* A panel opened on purpose (a plan's full list). Its content scrolls inside
+   it, so enlarged text never pushes the feed card past the screen. */
+.panel {
+  width: min(26rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 1.25rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 20px 50px -20px rgb(15 23 42 / 0.5);
+}
+.panel[open] {
+  display: flex;
+  flex-direction: column;
+}
+.panel::backdrop {
+  background: rgb(15 23 42 / 0.6);
+}
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.6rem 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.panel-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
 }
 
 /* ---------------------------------------------------------------- inclusions */
@@ -731,7 +810,7 @@ html:not([data-tab]) .tabs {
 /* -------------------------------------------------------------------- about */
 .portrait {
   width: 100%;
-  max-height: 42svh;
+  max-height: 38svh;
   aspect-ratio: 4 / 5;
   border-radius: 1.25rem;
   object-fit: cover;
@@ -979,6 +1058,57 @@ html:not([data-tab]) .tabs {
   flex: 1;
   margin-inline: 1rem;
   border-radius: 0.75rem;
+}
+
+/* ------------------------------------------------------------ short screens
+ * A 360×640 phone has about 584px below the tabs. Every card must fit that
+ * at normal text size: smaller pictures and headings, tighter spacing and a
+ * smaller WhatsApp button — body text stays at 15px or more. (Enlarged text
+ * can still need more; the card then scrolls inside itself.)
+ */
+@media (max-height: 700px) {
+  /* The WhatsApp button moves from the bottom corner into the top bar, so no
+     card has to keep a strip clear for it. Still one tap away, everywhere. */
+  :root {
+    --fab-size: 2.5rem;
+    --fab-room: 0.5rem;
+  }
+  .topbar {
+    padding-right: calc(1rem + var(--fab-size));
+  }
+  .fab {
+    top: calc((var(--bar-h) - var(--fab-size)) / 2);
+    bottom: auto;
+    right: max(0.5rem, calc((100vw - var(--col-w)) / 2 + 0.5rem));
+    z-index: 25;
+    box-shadow: none;
+  }
+  .fab svg {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .card-body {
+    gap: 0.6rem;
+    padding-top: 0.9rem;
+  }
+  .card-heading {
+    font-size: 1.4rem;
+  }
+  .compare-frame {
+    height: clamp(8.5rem, 24svh, 22rem);
+  }
+  .portrait {
+    max-height: 26svh;
+    aspect-ratio: auto;
+  }
+  .prose-card {
+    gap: 0.6rem;
+    font-size: 1rem;
+  }
+  .btn {
+    padding-inline: 1rem;
+    font-size: 1rem;
+  }
 }
 
 /* -------------------------------------------------------------------- 404 */

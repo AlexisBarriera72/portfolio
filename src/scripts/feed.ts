@@ -88,6 +88,28 @@ function init(feed: HTMLElement): void {
   /** Slack, in px, for rounding when asking whether a card's edge is on screen. */
   const EDGE = 2;
 
+  const CONTROLS = 'a[href], button, input, select, textarea, summary';
+
+  /**
+   * How far one press scrolls: a quarter of the visible height (`line`) or
+   * 90% of it (`page`). A page step stops short where it would cut a control
+   * in two — it brings that control's top edge (or bottom, going up) to the
+   * edge of the screen instead — so no control is skipped half-seen.
+   */
+  const stepSize = (card: HTMLElement, top: number, bottom: number, direction: 1 | -1, size: 'line' | 'page') => {
+    const height = bottom - top;
+    if (size === 'line') return height * 0.25;
+    let amount = height * 0.9;
+    for (const el of card.querySelectorAll<HTMLElement>(CONTROLS)) {
+      if (el.closest('dialog')) continue;
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 || r.height > height) continue;
+      if (direction > 0 && r.top > top + EDGE && r.top < bottom && r.bottom > bottom) amount = Math.min(amount, r.top - top);
+      if (direction < 0 && r.bottom < bottom - EDGE && r.bottom > top && r.top < top) amount = Math.min(amount, bottom - r.bottom);
+    }
+    return Math.max(amount, height * 0.25);
+  };
+
   /**
    * One press of ↑/↓ (`line`: a quarter screen), PageUp/PageDown or a desktop
    * arrow (`page`: a screen, less a little overlap). While the current card
@@ -103,7 +125,7 @@ function init(feed: HTMLElement): void {
       const rect = card.getBoundingClientRect();
       const offScreen = direction > 0 ? rect.bottom - bottom : top - rect.top;
       if (offScreen > EDGE) {
-        const amount = (bottom - top) * (size === 'page' ? 0.9 : 0.25);
+        const amount = stepSize(card, top, bottom, direction, size);
         window.scrollTo({ top: window.scrollY + direction * Math.min(amount, offScreen), behavior: behavior(true) });
         return;
       }

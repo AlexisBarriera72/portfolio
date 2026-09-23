@@ -45,6 +45,10 @@ const noteId = `note-${card.slug}`;
         <span class="compare-tag compare-tag-after" aria-hidden="true">
           {ui.after}
         </span>
+        <span class="compare-hint" aria-hidden="true">
+          <Icon name="compare" size={16} />
+          {ui.compareHint}
+        </span>
         <span class="compare-handle" aria-hidden="true">
           <span class="compare-knob">
             <Icon name="compare" size={18} />
@@ -60,13 +64,11 @@ const noteId = `note-${card.slug}`;
           aria-describedby={note ? noteId : undefined}
         />
       </div>
-      <figcaption class="compare-caption">
-        <span class="compare-hint" aria-hidden="true">
-          <Icon name="compare" size={16} />
-          {ui.compareHint}
-        </span>
-        {note && <span id={noteId}>{note[locale]}</span>}
-      </figcaption>
+      {note && (
+        <figcaption class="compare-caption">
+          <span id={noteId}>{note[locale]}</span>
+        </figcaption>
+      )}
     </figure>
   ) : (
     <figure class="compare">

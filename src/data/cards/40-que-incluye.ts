@@ -2,7 +2,8 @@ import type { InclusionsCard } from '../types';
 
 /**
  * They do not know what they are buying. Each item answers a question the
- * owner is too embarrassed to ask out loud.
+ * owner is too embarrassed to ask out loud. Three per card, so each card fits
+ * one phone screen; the rest are in 45-que-mas-incluye.ts.
  */
 const card: InclusionsCard = {
   type: 'inclusions',
@@ -38,30 +39,6 @@ const card: InclusionsCard = {
       body: {
         es: 'Subiste el precio del pastelillo, cambiaste el horario. Me escribes por WhatsApp y lo cambio el mismo día.',
         en: 'You raised a price or changed your hours. Message me on WhatsApp and I change it the same day.',
-      },
-    },
-    {
-      icon: 'shield',
-      title: { es: 'Si se rompe, lo arreglo yo', en: 'If it breaks, I fix it' },
-      body: {
-        es: 'No tienes que buscar a nadie más ni aprender nada técnico. Me llamas y yo lo resuelvo.',
-        en: 'You do not have to find anyone else or learn anything technical. You call me and I handle it.',
-      },
-    },
-    {
-      icon: 'search',
-      title: { es: 'Que te encuentren en Google', en: 'Being found on Google' },
-      body: {
-        es: 'Dejo tu negocio puesto en Google con la dirección, el teléfono y el horario, para que salga cuando alguien busque.',
-        en: 'I set your business up on Google with the address, phone and hours, so it shows up when someone searches.',
-      },
-    },
-    {
-      icon: 'phone',
-      title: { es: 'Hecha para el teléfono', en: 'Built for the phone' },
-      body: {
-        es: 'Casi todos tus clientes van a entrar desde el celular. La página se hace primero para ahí, no para la computadora.',
-        en: 'Almost all your customers will arrive on a phone. The site is built for that first, not for a desktop.',
       },
     },
   ],
