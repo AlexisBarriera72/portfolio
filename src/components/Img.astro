@@ -1,10 +1,13 @@
 ---
 /**
  * An image from the data. With the file present it becomes a <picture> with
- * AVIF/WebP at several widths, real width/height (so nothing shifts), and lazy
- * loading unless `eager`. With the file not added yet — only possible in dev
- * or a draft build, since the production build refuses missing media — it
- * renders a labelled placeholder box of the same shape.
+ * AVIF at several widths and a WebP fallback (every browser this audience uses
+ * reads one or the other, so no heavy PNG/JPEG copies are made), real
+ * width/height (so nothing shifts), and lazy loading unless `eager`.
+ *
+ * With the file not added yet — only possible in dev or a draft build, since
+ * the production build refuses missing media — it renders a labelled
+ * placeholder box of the same shape.
  */
 import { Picture } from 'astro:assets';
 import { resolveImage } from '../data/media';
@@ -45,7 +48,8 @@ const candidates = meta ? (usable.length > 0 ? usable : [meta.width]) : [];
     <Picture
       src={meta}
       alt={alt}
-      formats={['avif', 'webp']}
+      formats={['avif']}
+      fallbackFormat="webp"
       widths={candidates}
       sizes={sizes}
       loading={eager ? 'eager' : 'lazy'}
