@@ -76,6 +76,11 @@ export interface UIStrings {
     watchDemo: string;
     /** Accessible name for the open-demo button: says whose site. */
     openDemoLabel: (client: string) => string;
+    /** Button that opens the screenshots demo (a site that can't be framed). */
+    viewSizes: string;
+    viewSizesLabel: (client: string) => string;
+    /** Above the screenshots in that demo. */
+    screenshotsNote: string;
     closeDemo: string;
     /** Under the before/after box, for people who don't know it moves. */
     compareHint: string;

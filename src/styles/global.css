@@ -489,6 +489,9 @@ html:not([data-tab]) .tabs {
 .compare-tag-after {
   right: 0.6rem;
 }
+.compare-single {
+  cursor: default;
+}
 .compare-caption {
   display: flex;
   flex-direction: column;
@@ -791,6 +794,33 @@ html:not([data-tab]) .tabs {
   display: block;
   border: 0;
   transform-origin: 0 0;
+}
+/* Screenshots mode: the capture for the chosen device, whole, centred in the stage. */
+.demo-shots {
+  display: grid;
+  place-items: center;
+}
+.demo-shot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.demo-shot[hidden] {
+  display: none;
+}
+.demo-shot :is(img, .img-missing) {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 30px -10px rgb(15 23 42 / 0.35);
+}
+.demo-shot picture {
+  display: contents;
 }
 .demo-recorded {
   display: flex;

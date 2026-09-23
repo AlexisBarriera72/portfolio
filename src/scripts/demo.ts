@@ -2,7 +2,8 @@
  * The device demo dialog. The client's site loads only when the dialog opens
  * and is unloaded when it closes. The device buttons give the frame a real
  * device width; the frame is then scaled down to fit the stage, so the site
- * lays itself out exactly as it would on that device.
+ * lays itself out exactly as it would on that device. For a site that can't be
+ * framed, the same buttons swap between screenshots taken at those widths.
  */
 import { autoplayClip, pauseClip } from './clips';
 
@@ -44,12 +45,18 @@ function setUp(opener: HTMLButtonElement, dialog: HTMLDialogElement): void {
     if (clip) autoplayClip(clip);
   });
 
+  const shots = [...dialog.querySelectorAll<HTMLElement>('.demo-shot[data-device]')];
+
   for (const device of devices) {
     device.addEventListener('click', () => {
       for (const other of devices) other.setAttribute('aria-pressed', String(other === device));
-      iframe?.setAttribute('width', device.dataset.width ?? '390');
-      iframe?.setAttribute('height', device.dataset.height ?? '844');
-      fit();
+      if (iframe) {
+        iframe.setAttribute('width', device.dataset.width ?? '390');
+        iframe.setAttribute('height', device.dataset.height ?? '844');
+        fit();
+      }
+      // Screenshots mode: show the capture taken at this device's width.
+      for (const shot of shots) shot.hidden = shot.dataset.device !== device.dataset.device;
     });
   }
 

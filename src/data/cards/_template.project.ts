@@ -52,6 +52,10 @@ const card: ProjectCard = {
    * screenshots). If the "before" is a phone screenshot and the "after" is a
    * desktop one, the comparison is dishonest and a sharp owner will notice.
    * The production build refuses two files of different dimensions.
+   *
+   * No old site? Leave `before` out and say what they had in `note`
+   * ("Antes solo tenía Instagram"). `npm run capture -- <url> <slug>` takes
+   * the "after" (despues.webp) and the three device screenshots for you.
    */
   beforeAfter: {
     before: {
@@ -80,6 +84,17 @@ const card: ProjectCard = {
    * Any output means you need mode 'recorded' — a blocked iframe renders blank
    * with no error you can catch in JS. (Other CSP rules don't matter; only
    * frame-ancestors controls framing.) A live demo frames `liveUrl` below.
+   *
+   * If it can't be framed, show screenshots at each size instead:
+   *   demo: {
+   *     mode: 'screenshots',
+   *     reason: 'frame-ancestors',
+   *     shots: {
+   *       phone: { src: 'TODO-slug/phone.webp', alt: { es: '…', en: '…' } },
+   *       tablet: { src: 'TODO-slug/tablet.webp', alt: { es: '…', en: '…' } },
+   *       desktop: { src: 'TODO-slug/desktop.webp', alt: { es: '…', en: '…' } },
+   *     },
+   *   },
    */
   demo: {
     mode: 'live',

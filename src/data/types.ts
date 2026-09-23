@@ -174,7 +174,12 @@ export interface Client {
  * production build checks that the two files have the same dimensions.
  */
 export interface BeforeAfter {
-  before: Img;
+  /**
+   * Their old site. Optional: a business that had no website has nothing to
+   * screenshot — then the card shows the new site alone, and `note` says what
+   * they had instead ("Antes solo tenía Instagram").
+   */
+  before?: Img;
   after: Img;
   /** One plain line of framing: "El sitio viejo no se veía bien en teléfono." */
   note?: L10n;
@@ -187,7 +192,8 @@ export interface BeforeAfter {
  * and `framingCheckedOn` records when you last confirmed it.
  *
  * A live demo frames the project's `liveUrl`; there is no second URL to keep
- * in sync.
+ * in sync. When the site refuses framing, use 'screenshots' (lightest) or
+ * 'recorded'.
  */
 export type Demo =
   | {
@@ -200,9 +206,23 @@ export type Demo =
   | {
       mode: 'recorded';
       /** Kept on the record so the choice is auditable later. */
-      reason: 'x-frame-options' | 'frame-ancestors' | 'too-heavy' | 'other';
+      reason: DemoFallbackReason;
       clip: Clip;
+    }
+  | {
+      /**
+       * Real screenshots of the site at each device width — for a site that
+       * refuses to be framed. The device buttons swap the picture, so the
+       * layout change still shows; no video to record or keep under 2 MB.
+       * `npm run capture -- <url> <slug>` takes all three.
+       */
+      mode: 'screenshots';
+      reason: DemoFallbackReason;
+      shots: Record<DeviceId, Img>;
     };
+
+/** Why a demo is not live, kept on the record so the choice can be revisited. */
+export type DemoFallbackReason = 'x-frame-options' | 'frame-ancestors' | 'too-heavy' | 'other';
 
 /** Widths the demo buttons switch between. Labels live in src/i18n/. */
 export const DEVICE_PRESETS = [

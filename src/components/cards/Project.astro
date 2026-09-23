@@ -25,6 +25,11 @@ const { card, locale, eager } = Astro.props;
 const ui = t(locale).project;
 const { client } = card;
 const demoId = `demo-${card.slug}`;
+const DEMO_BUTTON: Record<ProjectCard['demo']['mode'], string> = {
+  live: ui.openDemo,
+  recorded: ui.watchDemo,
+  screenshots: ui.viewSizes,
+};
 ---
 
 <header class="flex flex-col gap-1">
@@ -79,10 +84,10 @@ const demoId = `demo-${card.slug}`;
     data-demo-open={demoId}
     aria-haspopup="dialog"
     aria-controls={demoId}
-    aria-label={ui.openDemoLabel(client.name)}
+    aria-label={card.demo.mode === 'screenshots' ? ui.viewSizesLabel(client.name) : ui.openDemoLabel(client.name)}
   >
     <Icon name="device" />
-    <span>{card.demo.mode === 'live' ? ui.openDemo : ui.watchDemo}</span>
+    <span>{DEMO_BUTTON[card.demo.mode]}</span>
   </button>
 </div>
 

@@ -278,7 +278,7 @@ function checkLaunch(
     });
     for (const ref of mediaOf(card)) refs.set(ref.src, ref);
 
-    if (card.type === 'project') {
+    if (card.type === 'project' && card.beforeAfter.before) {
       const before = imageSize(card.beforeAfter.before.src);
       const after = imageSize(card.beforeAfter.after.src);
       if (before && after && (before.width !== after.width || before.height !== after.height)) {
@@ -373,7 +373,9 @@ export function mediaOf(card: Card): MediaRef[] {
   const images: Img[] = [];
   switch (card.type) {
     case 'project':
-      images.push(card.beforeAfter.before, card.beforeAfter.after);
+      if (card.beforeAfter.before) images.push(card.beforeAfter.before);
+      images.push(card.beforeAfter.after);
+      if (card.demo.mode === 'screenshots') images.push(...Object.values(card.demo.shots));
       if (card.client.owner) images.push(card.client.owner.photo);
       break;
     case 'about':

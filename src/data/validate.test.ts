@@ -293,6 +293,28 @@ describe('validate — launch checks (strict)', () => {
     expect(problems.join('\n')).toMatch(/intro\.mp4 is 2\.0 MB/);
   });
 
+  it('accepts a project with no "before" — the business had no site', () => {
+    const problems = problemsAfter((f) => {
+      f.project.beforeAfter = { after: img('despues.webp'), note: l('Antes solo tenía Instagram.') };
+    }, true);
+    expect(problems).toEqual([]);
+  });
+
+  it('checks every screenshot of a screenshots demo exists', () => {
+    const problems = problemsAfter(
+      (f) => {
+        f.project.demo = {
+          mode: 'screenshots',
+          reason: 'frame-ancestors',
+          shots: { phone: img('shots/phone.webp'), tablet: img('shots/tablet.webp'), desktop: img('shots/desktop.webp') },
+        };
+      },
+      true,
+      { ...fullDisk, imageSize: (p) => (p === 'shots/tablet.webp' ? undefined : { width: 780, height: 1688 }) },
+    );
+    expect(problems).toEqual(['missing image src/assets/media/shots/tablet.webp']);
+  });
+
   it('rejects before/after shots of different sizes', () => {
     const problems = problemsAfter(() => {}, true, {
       ...fullDisk,
