@@ -15,6 +15,7 @@ Cloudflare.
 | `npm run check:launch` | Lists everything that still has to be real before launch.                                        |
 | `npm test`             | Unit tests (content rules, links, SEO, security headers).                                        |
 | `npm run test:e2e`     | Browser tests on phone and desktop sizes (build first).                                          |
+| `npm run test:deployed`| Checks a real deployment: `DEPLOY_KIND=preview\|production DEPLOY_URL=https://… npm run test:deployed`. |
 | `npm run capture`      | Screenshots a site at phone, tablet and desktop size for its project card (see below).          |
 
 ## Adding a project
@@ -55,8 +56,10 @@ says exactly what and where.
 - the real WhatsApp and phone number (`src/data/site.ts` → `contact`);
 - El Break's real web address (`src/data/cards/10-el-break.ts` → `liveUrl`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the media: your portrait, the share image, the intro video and its poster,
-  and El Break's before/after screenshots.
+- the media: your portrait, the share image, the intro video with its poster
+  and its captions (`public/media/intro/saludo.es.vtt` and `.en.vtt`, timed to
+  the real recording), El Break's before/after screenshots and its demo
+  captures (`npm run capture` once its real address is in).
 
 Also worth doing:
 
@@ -73,20 +76,41 @@ use only, and a site that advertises your services is commercial — it would
 need the paid plan. Cloudflare's free plan allows it, serves from a location
 in San Juan, and reads the security headers this build generates.
 
+GitHub Actions does the deploying (`.github/workflows/ci.yml`), to two
+separate Workers so a preview can never replace the real site:
+
+- **Every pull request** → the draft build (placeholders allowed, hidden from
+  search engines) goes to the `portfolio-preview` Worker. Its address is in
+  the job's summary, and the job then checks the live preview.
+- **Every push to `main`** → the strict build goes to the `portfolio` Worker,
+  on your domain. The strict build refuses to exist while anything is fake or
+  missing, so until the "Before launch" list is done this job fails on
+  purpose and nothing is deployed — the log lists what is left. After a
+  deploy it checks the real domain (pages, contact links, share images,
+  media, demos, the video playing) and measures loading speed: 3 runs on a
+  simulated phone, median largest paint under 2 seconds (`lighthouserc.json`).
+
 One-time setup:
 
-1. In the Cloudflare dashboard: **Workers & Pages → Create → Import a
-   repository**, and pick this GitHub repository.
-2. Build command: `npm run build` — deploy command: `npx wrangler deploy`
-   (the settings live in `wrangler.jsonc`).
-   Until the launch checklist is done, use `npm run build:draft` instead so
-   you can see a preview; switch to `npm run build` for the real launch.
-3. **Settings → Domains & Routes → Add → Custom domain** with your domain
-   (it has to use Cloudflare for its DNS). Put the same domain in
-   `src/data/site.ts`.
+1. **Cloudflare API token.** Cloudflare dashboard → My Profile → API Tokens →
+   Create Token → template "Edit Cloudflare Workers". Also copy your Account
+   ID (Workers & Pages overview, right column).
+2. **GitHub secrets.** This repository → Settings → Secrets and variables →
+   Actions → New repository secret: `CLOUDFLARE_API_TOKEN` and
+   `CLOUDFLARE_ACCOUNT_ID`.
+3. **Turn off Cloudflare's own builds.** Workers & Pages → `portfolio` →
+   Settings → Build → Disconnect. Until you do, Cloudflare keeps deploying
+   every push itself — including the draft to the real site.
+4. **Take the draft off the real site until launch.** It is what `portfolio`
+   serves today. Workers & Pages → `portfolio` → Settings → Domains & Routes →
+   turn off the `workers.dev` address (or delete the Worker: the first launch
+   deploy creates it again).
+5. **Your domain.** Workers & Pages → `portfolio` → Settings → Domains &
+   Routes → Add → Custom domain (the domain has to use Cloudflare for its
+   DNS). Put the same domain in `src/data/site.ts` → `url`.
 
-After that, every push to `main` deploys. To test a deployment with the
-browser tests: `E2E_BASE_URL=https://your-preview-url npm run test:e2e`.
+To check a deployment by hand, for example a preview:
+`DEPLOY_KIND=preview DEPLOY_URL=https://portfolio-preview.<account>.workers.dev npm run test:deployed`.
 
 ## How it is put together
 
