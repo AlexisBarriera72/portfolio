@@ -1,0 +1,30 @@
+---
+/**
+ * Always on screen: WhatsApp is how people here reach a business, so the
+ * shortest path to it should never be more than one tap away. Uses the
+ * message from the contact card's WhatsApp button when there is one.
+ */
+import { cards } from '../data';
+import type { Locale } from '../data/types';
+import { t } from '../i18n';
+import { whatsappUrl } from '../lib/links';
+import Icon from './Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = t(locale);
+const contactWhatsapp = cards
+  .flatMap((c) => (c.type === 'contact' ? c.primary : []))
+  .find((cta) => cta.kind === 'whatsapp');
+const message = contactWhatsapp?.kind === 'whatsapp' ? contactWhatsapp.prefill?.[locale] : undefined;
+---
+
+<aside aria-label="WhatsApp">
+  <a class="fab" href={whatsappUrl(message)} target="_blank" rel="noopener">
+    <Icon name="chat" size={26} />
+    <span class="sr-only">{ui.contact.whatsappButton} ({ui.project.opensInNewTab})</span>
+  </a>
+</aside>

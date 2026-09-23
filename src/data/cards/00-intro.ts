@@ -1,13 +1,15 @@
 import type { IntroCard } from '../types';
 
 /**
- * First card in every tab. Its poster image is the LCP element on the site,
- * so it is the only media that loads eagerly.
+ * First card of "Para ti" and the home page. Its poster image is the LCP
+ * element there, so it is the only media on that page that loads eagerly.
+ * It is not in the other tabs: someone who taps "Contacto" wants the contact
+ * card, not the intro video first.
  */
 const card: IntroCard = {
   type: 'intro',
   slug: 'inicio',
-  tabs: ['para-ti', 'local', 'precios', 'sobre-mi', 'contacto'],
+  tabs: ['para-ti'],
   order: 0,
 
   heading: {
@@ -24,15 +26,12 @@ const card: IntroCard = {
   clip: {
     webm: '/media/intro/saludo.webm',
     mp4: '/media/intro/saludo.mp4',
-    poster: '/media/intro/saludo-poster.jpg',
+    poster: 'intro/saludo-poster.jpg',
     posterAlt: {
       es: 'Alexis mirando a la cámara, listo para hablar.',
       en: 'Alexis looking at the camera, about to speak.',
     },
-    width: 1080,
-    height: 1920,
-    durationSec: 9,
-    sizeKb: 780,
+    sound: true,
     transcript: {
       es: [
         'Hola, soy Alexis. Hago páginas web para negocios pequeños en Puerto Rico.',

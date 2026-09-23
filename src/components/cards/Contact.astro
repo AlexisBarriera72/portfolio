@@ -1,0 +1,67 @@
+---
+/**
+ * WhatsApp and phone first — that is how people here reach a business. Email
+ * is the secondary path: a plain mailto link until a form service is set up,
+ * then a real form (with a hidden honeypot field that catches spam bots).
+ */
+import { site } from '../../data/site';
+import type { ContactCard, Locale } from '../../data/types';
+import { t } from '../../i18n';
+import Cta from '../Cta.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  card: ContactCard;
+  locale: Locale;
+}
+
+const { card, locale } = Astro.props;
+const ui = t(locale).contact;
+const form = card.form;
+---
+
+<h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+
+<div class="flex flex-col gap-3">
+  {card.primary.map((cta, i) => <Cta cta={cta} locale={locale} variant={i === 0 ? 'primary' : 'secondary'} class="btn-block" />)}
+  <p class="contact-number">
+    <a href={`tel:${site.contact.phone.e164}`}>{site.contact.phone.display}</a>
+  </p>
+  {card.hours && <p class="fine-print text-center">{card.hours[locale]}</p>}
+</div>
+
+{
+  form && (
+    <section class="contact-secondary" aria-labelledby={`h-${card.slug}-email`}>
+      <h3 id={`h-${card.slug}-email`} class="subheading">
+        {form.mode === 'post' ? ui.formHeading : ui.orByEmail}
+      </h3>
+      {form.mode === 'mailto' ? (
+        <a class="btn btn-secondary btn-block" href={`mailto:${site.contact.email}`}>
+          <Icon name="mail" />
+          <span>{ui.emailInstead}</span>
+        </a>
+      ) : (
+        <form class="contact-form" method="post" action={form.endpoint}>
+          {form.fields.map((field) => (
+            <label class="field">
+              <span>
+                {field.label[locale]}
+                {field.required && <span class="field-required"> ({ui.required})</span>}
+              </span>
+              {field.type === 'textarea' ? (
+                <textarea name={field.name} rows="3" required={field.required} autocomplete={field.autocomplete} />
+              ) : (
+                <input type={field.type} name={field.name} required={field.required} autocomplete={field.autocomplete} />
+              )}
+            </label>
+          ))}
+          <input class="honeypot" type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <button type="submit" class="btn btn-primary btn-block">
+            {form.submitLabel[locale]}
+          </button>
+        </form>
+      )}
+    </section>
+  )
+}

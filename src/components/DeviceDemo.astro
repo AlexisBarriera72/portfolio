@@ -1,0 +1,108 @@
+---
+/**
+ * The device-width demo, in a dialog.
+ *
+ * Live mode frames the client's real site. The iframe has no `src` until the
+ * dialog opens (src/scripts/demo.ts sets it from `data-demo-src` and clears it
+ * on close), so no client site — with its own scripts and trackers — loads for
+ * someone who never asks for it. The frame is sandboxed without
+ * allow-top-navigation, so the framed site can never navigate this page away.
+ * The phone/tablet/desktop buttons set the frame's real width; the stage
+ * scales it down to fit, so the layout visibly reflows.
+ *
+ * When the site refuses to be framed:
+ *  - screenshots mode shows real captures at each device width; the same
+ *    buttons swap them (src/scripts/demo.ts);
+ *  - recorded mode shows a screen recording.
+ */
+import { DEVICE_PRESETS, type Locale, type ProjectCard } from '../data/types';
+import { t } from '../i18n';
+import Clip from './Clip.astro';
+import Icon from './Icon.astro';
+import Img from './Img.astro';
+
+interface Props {
+  id: string;
+  card: ProjectCard;
+  locale: Locale;
+}
+
+const { id, card, locale } = Astro.props;
+const ui = t(locale).project;
+const titleId = `${id}-title`;
+const shots = card.demo.mode === 'screenshots' ? card.demo.shots : undefined;
+const first = DEVICE_PRESETS[0];
+---
+
+<dialog id={id} class="demo" aria-labelledby={titleId} data-demo>
+  <div class="demo-bar">
+    <h3 id={titleId} class="demo-title">{card.client.name}</h3>
+    <form method="dialog">
+      <button type="submit" class="demo-close" aria-label={ui.closeDemo}><Icon name="close" /></button>
+    </form>
+  </div>
+  {
+    card.demo.mode !== 'recorded' && (
+      <>
+        <p class="demo-lead">{card.demo.mode === 'live' ? ui.demoHeading : ui.screenshotsNote}</p>
+        <div class="demo-devices" role="group" aria-label={ui.deviceGroupLabel}>
+          {DEVICE_PRESETS.map((preset, i) => (
+            <button
+              type="button"
+              class="demo-device"
+              data-device={preset.id}
+              data-width={preset.width}
+              data-height={preset.height}
+              aria-pressed={i === 0 ? 'true' : 'false'}
+            >
+              {ui.devices[preset.id]}
+              <span class="demo-device-size">{preset.width}px</span>
+            </button>
+          ))}
+        </div>
+      </>
+    )
+  }
+  {
+    card.demo.mode === 'live' && (
+      <div class="demo-stage" data-demo-stage>
+        <div class="demo-screen" data-demo-screen>
+          <iframe
+            data-demo-src={card.liveUrl}
+            title={card.demo.title[locale]}
+            width={first.width}
+            height={first.height}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            referrerpolicy="strict-origin-when-cross-origin"
+            loading="lazy"
+          />
+        </div>
+      </div>
+    )
+  }
+  {
+    shots && (
+      <div class="demo-stage demo-shots" data-demo-stage>
+        {DEVICE_PRESETS.map((preset, i) => (
+          <div class="demo-shot" data-device={preset.id} hidden={i !== 0}>
+            {/* Lazy, inside a closed dialog and a hidden box: each shot loads only when shown. */}
+            <Img
+              image={shots[preset.id]}
+              locale={locale}
+              sizes="(min-width: 768px) 70rem, 100vw"
+              widths={[480, 820, 1280, 1640]}
+            />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  {
+    card.demo.mode === 'recorded' && (
+      <div class="demo-recorded">
+        <p class="demo-lead">{ui.recordedDemoNote}</p>
+        <Clip clip={card.demo.clip} locale={locale} class="demo-clip" />
+      </div>
+    )
+  }
+</dialog>

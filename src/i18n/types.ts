@@ -1,14 +1,20 @@
-import type { DeviceId, FeedTab } from '../content/types';
+import type { DeviceId, FeedTab, Tier } from '../data/types';
 
 /**
  * Every string that is part of the interface rather than the content.
  *
- * Content lives in src/content/ because it changes per card. These change per
+ * Content lives in src/data/ because it changes per card. These change per
  * locale only. Declaring the shape here means src/i18n/en.ts will not compile
  * if it is missing a key that src/i18n/es.ts has.
  *
- * Interpolated strings are functions, not templates with placeholders, so the
- * two locales can put the numbers in different places.
+ * Interpolated strings come in two forms, and the choice depends on where
+ * they are filled in:
+ *  - Functions, for text rendered at build time. The two locales can put the
+ *    values in different places, and TypeScript checks the arguments.
+ *  - "{placeholder}" templates, for text the browser fills in at runtime (the
+ *    card position depends on which tab is open). Functions cannot be sent to
+ *    the client; templates are plain strings, filled with format() from
+ *    ./format.ts.
  */
 export interface UIStrings {
   /** <html lang="…"> and the hreflang attribute. */
@@ -27,8 +33,12 @@ export interface UIStrings {
     next: string;
     previous: string;
     backToTop: string;
-    /** "Tarjeta 3 de 9" — read out when a card becomes active. */
-    position: (index: number, total: number) => string;
+    /**
+     * Template: "{index}" and "{total}". "Tarjeta 3 de 9" — read out after
+     * keyboard or button navigation. Filled in the browser, since the total
+     * depends on the open tab.
+     */
+    position: string;
     skipToContent: string;
     /** Hint on the first card only. */
     swipeHint: string;
@@ -51,22 +61,40 @@ export interface UIStrings {
     /** Accessible name for the phone/tablet/desktop button group. */
     deviceGroupLabel: string;
     devices: Record<DeviceId, string>;
-    /** "Ver el sitio de El Break" — the single outbound link. */
+    /** "Ver el sitio de El Break" — the single outbound link's accessible name. */
     visitSite: (client: string) => string;
+    /** Its visible text: short, so it fits beside the demo button. */
+    visitSiteShort: string;
     /** Appended to external links for screen readers. */
     opensInNewTab: string;
     /** Shown over a recorded demo when the site cannot be embedded. */
     recordedDemoNote: string;
     clientIn: (city: string) => string;
+    /** Button that opens the device demo (live site). */
+    openDemo: string;
+    /** Button that opens the device demo when it is a recording. */
+    watchDemo: string;
+    /** Accessible name for the open-demo button: says whose site. */
+    openDemoLabel: (client: string) => string;
+    /** Button that opens the screenshots demo (a site that can't be framed). */
+    viewSizes: string;
+    viewSizesLabel: (client: string) => string;
+    /** Above the screenshots in that demo. */
+    screenshotsNote: string;
+    closeDemo: string;
+    /** Under the before/after box, for people who don't know it moves. */
+    compareHint: string;
   };
 
   pricing: {
     /** "desde" — precedes the number. */
     from: string;
-    billing: Record<'once' | 'monthly' | 'yearly', string>;
+    billing: Record<Tier['billing'], string>;
     includesHeading: string;
     /** Marks the featured tier. */
     mostChosen: string;
+    /** Heading over the year-two cost line. */
+    afterFirstYear: string;
   };
 
   contact: {
@@ -75,6 +103,8 @@ export interface UIStrings {
     /** Used when no form endpoint is configured. */
     emailInstead: string;
     required: string;
+    /** Accessible name of the floating WhatsApp button. */
+    whatsappButton: string;
   };
 
   video: {
@@ -83,9 +113,17 @@ export interface UIStrings {
     pause: string;
     /** Heading for the visually-hidden transcript. */
     transcriptHeading: string;
+    soundOn: string;
+    soundOff: string;
   };
 
   end: {
     startOver: string;
+  };
+
+  notFound: {
+    title: string;
+    body: string;
+    home: string;
   };
 }

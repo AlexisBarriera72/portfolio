@@ -1,0 +1,29 @@
+---
+import type { InclusionsCard, Locale } from '../../data/types';
+import Icon from '../Icon.astro';
+
+interface Props {
+  card: InclusionsCard;
+  locale: Locale;
+}
+
+const { card, locale } = Astro.props;
+---
+
+<h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+
+<ul class="inclusions">
+  {
+    card.items.map((item) => (
+      <li class="inclusion">
+        <span class="inclusion-icon">
+          <Icon name={item.icon} size={22} />
+        </span>
+        <div>
+          <h3 class="inclusion-title">{item.title[locale]}</h3>
+          <p class="inclusion-body">{item.body[locale]}</p>
+        </div>
+      </li>
+    ))
+  }
+</ul>

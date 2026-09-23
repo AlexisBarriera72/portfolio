@@ -1,0 +1,47 @@
+---
+import type { Locale, PricingCard } from '../../data/types';
+import { formatPrice, t } from '../../i18n';
+import Cta from '../Cta.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  card: PricingCard;
+  locale: Locale;
+}
+
+const { card, locale } = Astro.props;
+const ui = t(locale).pricing;
+---
+
+<h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+
+<ul class="tiers">
+  {
+    card.tiers.map((tier) => (
+      <li class:list={['tier', { 'tier-featured': tier.featured }]}>
+        <div class="tier-head">
+          <h3 class="tier-name">{tier.name[locale]}</h3>
+          {tier.featured && <span class="tier-badge">{ui.mostChosen}</span>}
+        </div>
+        <p class="tier-price">
+          <span class="tier-from">{ui.from}</span>
+          <strong>{formatPrice(tier.priceFrom, locale)}</strong>
+          <span class="tier-billing">{ui.billing[tier.billing]}</span>
+        </p>
+        <ul class="tier-includes" aria-label={`${ui.includesHeading}: ${tier.name[locale]}`}>
+          {tier.includes.map((item) => (
+            <li>
+              <Icon name="check" size={16} class="outcome-icon" />
+              <span>{item[locale]}</span>
+            </li>
+          ))}
+        </ul>
+      </li>
+    ))
+  }
+</ul>
+
+<p class="fine-print">{card.note[locale]}</p>
+<p class="fine-print"><strong>{ui.afterFirstYear}:</strong> {card.afterFirstYear[locale]}</p>
+
+<Cta cta={card.cta} locale={locale} class="self-start" />

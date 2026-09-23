@@ -1,0 +1,97 @@
+---
+/**
+ * A client project, built to fit one phone screen:
+ *   - the before/after comparison — one box, a slider between the two shots;
+ *   - what changed for the business, in plain words;
+ *   - one link to the live site, and a button that opens the device demo.
+ * The live site is never framed inside the feed itself: an iframe in a swipe
+ * feed catches the finger and scrolls the client's site instead of the feed.
+ * It lives in a dialog that only loads the site when opened.
+ */
+import type { Locale, ProjectCard } from '../../data/types';
+import { t } from '../../i18n';
+import Compare from '../Compare.astro';
+import DeviceDemo from '../DeviceDemo.astro';
+import Icon from '../Icon.astro';
+import Img from '../Img.astro';
+
+interface Props {
+  card: ProjectCard;
+  locale: Locale;
+  eager: boolean;
+}
+
+const { card, locale, eager } = Astro.props;
+const ui = t(locale).project;
+const { client } = card;
+const demoId = `demo-${card.slug}`;
+const DEMO_BUTTON: Record<ProjectCard['demo']['mode'], string> = {
+  live: ui.openDemo,
+  recorded: ui.watchDemo,
+  screenshots: ui.viewSizes,
+};
+---
+
+<header class="flex flex-col gap-1">
+  <p class="eyebrow">{client.kind[locale]} · {ui.clientIn(client.city)}</p>
+  <h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+</header>
+
+<Compare card={card} locale={locale} eager={eager} />
+
+{/* A plain block, not a <section>: a named section is a landmark, and every
+    project card would add another landmark with the same name. The h3 already
+    gives screen readers the structure. */}
+<div class="flex flex-col gap-2">
+  <h3 class="subheading">{ui.outcomesHeading}</h3>
+  <ul class="outcomes">
+    {
+      card.outcomes.map((outcome) => (
+        <li>
+          <Icon name="check" size={18} class="outcome-icon" />
+          <span>{outcome[locale]}</span>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+{
+  (client.owner || card.quote) && (
+    <figure class="owner">
+      {client.owner && (
+        <Img image={client.owner.photo} locale={locale} sizes="3rem" widths={[96, 144]} class="owner-photo" />
+      )}
+      <div>
+        {card.quote && <blockquote class="owner-quote">“{card.quote.text[locale]}”</blockquote>}
+        <figcaption class="owner-name">{card.quote?.attribution ?? client.owner?.name}</figcaption>
+      </div>
+    </figure>
+  )
+}
+
+<div class="actions">
+  <a
+    class="btn btn-primary"
+    href={card.liveUrl}
+    target="_blank"
+    rel="noopener"
+    aria-label={`${ui.visitSite(client.name)} (${ui.opensInNewTab})`}
+  >
+    <span>{ui.visitSiteShort}</span>
+    <Icon name="external" size={18} />
+  </a>
+  <button
+    type="button"
+    class="btn btn-secondary"
+    data-demo-open={demoId}
+    aria-haspopup="dialog"
+    aria-controls={demoId}
+    aria-label={card.demo.mode === 'screenshots' ? ui.viewSizesLabel(client.name) : ui.openDemoLabel(client.name)}
+  >
+    <Icon name="device" />
+    <span>{DEMO_BUTTON[card.demo.mode]}</span>
+  </button>
+</div>
+
+<DeviceDemo id={demoId} card={card} locale={locale} />

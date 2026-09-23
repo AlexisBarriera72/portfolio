@@ -2,17 +2,34 @@
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import { site } from './src/data/site.ts';
+import { localePath, t } from './src/i18n/index.ts';
+import { DEFAULT_LOCALE, LOCALES } from './src/data/types.ts';
+import securityHeaders from './src/integrations/security-headers.ts';
 
-// TODO(alexis): set `site` to the real domain — the sitemap and canonical
-// URLs are generated from it.
+// The origin lives in src/data/site.ts, so the sitemap, canonical URLs and
+// the JSON-LD cannot disagree about the domain.
+//
+// Locale routing is done by src/i18n (localePath), not by Astro's i18n option,
+// so there is one routing helper rather than two.
 export default defineConfig({
-  site: 'https://example.com',
+  site: site.url,
   output: 'static',
-  integrations: [sitemap()],
+  // Every page is a folder (/en/, /el-break/). Linking to "/en" would cost a
+  // redirect on most hosts; this makes Astro and the sitemap agree on "/en/".
+  trailingSlash: 'always',
+  integrations: [
+    // Writes dist/_headers (CSP, caching) for Cloudflare after each build.
+    securityHeaders(),
+    sitemap({
+      // Only the language homes: every card page carries the same feed and
+      // names its home as canonical (see src/layouts/Base.astro).
+      filter: (page) => LOCALES.some((locale) => new URL(page).pathname === localePath(locale)),
+      i18n: {
+        defaultLocale: DEFAULT_LOCALE,
+        locales: Object.fromEntries(LOCALES.map((locale) => [locale, t(locale).htmlLang])),
+      },
+    }),
+  ],
   vite: { plugins: [tailwindcss()] },
-  i18n: {
-    defaultLocale: 'es',
-    locales: ['es', 'en'],
-    routing: { prefixDefaultLocale: false },
-  },
 });

@@ -1,0 +1,28 @@
+---
+import { cards, pathForCard } from '../../data';
+import type { EndCard, Locale } from '../../data/types';
+import { t } from '../../i18n';
+import Cta from '../Cta.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  card: EndCard;
+  locale: Locale;
+}
+
+const { card, locale } = Astro.props;
+const ui = t(locale);
+const first = cards[0]!;
+---
+
+<div class="end">
+  <h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+  <div class="prose-card">
+    {card.body[locale].map((paragraph) => <p>{paragraph}</p>)}
+  </div>
+  <Cta cta={card.cta} locale={locale} class="btn-block" />
+  <a class="restart" href={pathForCard(first, locale)} data-feed-restart>
+    <Icon name="arrow-up" size={18} />
+    <span>{ui.end.startOver}</span>
+  </a>
+</div>

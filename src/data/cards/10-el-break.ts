@@ -25,22 +25,18 @@ const card: ProjectCard = {
 
   beforeAfter: {
     before: {
-      src: '/media/el-break/antes.webp',
+      src: 'el-break/antes.webp',
       alt: {
         es: 'La página vieja de El Break: una foto borrosa del menú escrita a mano, difícil de leer en el teléfono.',
         en: 'El Break’s old page: a blurry photo of a handwritten menu, hard to read on a phone.',
       },
-      width: 780,
-      height: 1688,
     },
     after: {
-      src: '/media/el-break/despues.webp',
+      src: 'el-break/despues.webp',
       alt: {
         es: 'La página nueva de El Break: la carta con precios claros y el horario de hoy arriba.',
         en: 'El Break’s new page: the menu with clear prices and today’s hours at the top.',
       },
-      width: 780,
-      height: 1688,
     },
     note: {
       es: 'Antes el menú era una foto. Había que estirar la pantalla para leer los precios.',
@@ -50,7 +46,6 @@ const card: ProjectCard = {
 
   demo: {
     mode: 'live',
-    url: 'https://elbreak.example', // TODO(alexis): the real public URL
     title: {
       es: 'Sitio de El Break Food Truck, en vivo',
       en: 'El Break Food Truck’s live website',
@@ -64,7 +59,7 @@ const card: ProjectCard = {
       en: 'People can see whether the truck is open right now, without calling.',
     },
     {
-      es: 'La carta y los precios se leen del tirón en el teléfono.',
+      es: 'La carta y los precios se leen de un vistazo en el teléfono.',
       en: 'The menu and prices are readable at a glance on a phone.',
     },
     {
@@ -73,7 +68,7 @@ const card: ProjectCard = {
     },
   ],
 
-  liveUrl: 'https://elbreak.example', // TODO(alexis): same URL as the demo
+  liveUrl: 'https://elbreak.example', // TODO(alexis): the real public URL — the live demo frames it too
 
   // quote: {
   //   text: { es: '…', en: '…' },

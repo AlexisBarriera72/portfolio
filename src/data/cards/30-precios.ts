@@ -59,6 +59,13 @@ const card: PricingCard = {
     en: 'These are starting prices. The final price depends on how many pages it needs and whether photos have to be taken. I give you the exact number before we start, and it does not change after.',
   },
 
+  // TODO(alexis): put the real yearly number here. The production build will
+  // not ship until this line has no TODO in it.
+  afterFirstYear: {
+    es: 'TODO: Del segundo año en adelante, el dominio y el hosting cuestan $__ al año.',
+    en: 'TODO: From the second year on, the domain and hosting cost $__ per year.',
+  },
+
   cta: {
     kind: 'whatsapp',
     label: { es: 'Pregúntame por WhatsApp', en: 'Ask me on WhatsApp' },

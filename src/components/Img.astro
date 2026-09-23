@@ -1,0 +1,65 @@
+---
+/**
+ * An image from the data. With the file present it becomes a <picture> with
+ * AVIF at several widths and a WebP fallback (every browser this audience uses
+ * reads one or the other, so no heavy PNG/JPEG copies are made), real
+ * width/height (so nothing shifts), and lazy loading unless `eager`.
+ *
+ * With the file not added yet — only possible in dev or a draft build, since
+ * the production build refuses missing media — it renders a labelled
+ * placeholder box of the same shape.
+ */
+import { Picture } from 'astro:assets';
+import { resolveImage } from '../data/media';
+import type { Img, Locale } from '../data/types';
+
+interface Props {
+  image: Img;
+  locale: Locale;
+  /** The `sizes` attribute: how wide the image is shown. Defaults to the feed column. */
+  sizes?: string;
+  /** Candidate widths; widths larger than the original are dropped. */
+  widths?: number[];
+  /** The page's own first image: load it now, with high priority. */
+  eager?: boolean;
+  class?: string;
+  /** Empty alt — for an image that repeats what the text next to it already says. */
+  decorative?: boolean;
+}
+
+const {
+  image,
+  locale,
+  sizes = '(min-width: 768px) 440px, 100vw',
+  widths = [360, 540, 720, 1080],
+  eager = false,
+  class: className,
+  decorative = false,
+} = Astro.props;
+
+const meta = resolveImage(image.src);
+const alt = decorative ? '' : image.alt[locale];
+const usable = meta ? widths.filter((w) => w <= meta.width) : [];
+const candidates = meta ? (usable.length > 0 ? usable : [meta.width]) : [];
+---
+
+{
+  meta ? (
+    <Picture
+      src={meta}
+      alt={alt}
+      formats={['avif']}
+      fallbackFormat="webp"
+      widths={candidates}
+      sizes={sizes}
+      loading={eager ? 'eager' : 'lazy'}
+      fetchpriority={eager ? 'high' : 'auto'}
+      decoding={eager ? 'sync' : 'async'}
+      class={className}
+    />
+  ) : (
+    <span class:list={['img-missing', className]} role={decorative ? undefined : 'img'} aria-label={alt || undefined}>
+      <span aria-hidden="true">{image.alt[locale]}</span>
+    </span>
+  )
+}

@@ -1,0 +1,81 @@
+---
+/**
+ * The HTML shell: language, metadata, link previews, structured data, and the
+ * one script that must run before the first paint (the tab filter).
+ *
+ * SEO shape: every card has its own page so a link shared on WhatsApp gets
+ * that card's title and image (og:url is the card's page). All of them carry
+ * the same feed, so each names its language's home page as canonical — Google
+ * indexes one page per language, previews stay per card.
+ */
+import '../styles/global.css';
+import { DEFAULT_TAB, FEED_TABS, type Card, type Locale } from '../data/types';
+import { absoluteUrl, alternates, localePath, otherLocale, t } from '../i18n';
+import { businessJsonLd, serializeJsonLd } from '../lib/seo';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** Absolute path of this page, e.g. "/en/el-break/". */
+  path: string;
+  /** The page's own card — its tabs decide where the feed starts. */
+  card?: Card;
+  /** Absolute URL of the link-preview image. */
+  image?: string;
+  noindex?: boolean;
+}
+
+const { locale, title, description, path, card, image, noindex = false } = Astro.props;
+const ui = t(locale);
+const draft = import.meta.env.MODE === 'draft';
+const OG_LOCALE: Record<Locale, string> = { es: 'es_PR', en: 'en_US' };
+
+/**
+ * Runs before first paint, so a shared "?tab=precios" link never flashes the
+ * whole feed. It only sets attributes; CSS below does the hiding. Identical on
+ * every page, so the CSP needs one hash for it.
+ */
+const tabScript = `(function(){var d=document.documentElement,a=${JSON.stringify(FEED_TABS)},t=new URLSearchParams(location.search).get('tab');if(a.indexOf(t)<0)t=${JSON.stringify(DEFAULT_TAB)};d.setAttribute('data-tab',t);if((' '+(d.getAttribute('data-card-tabs')||'')+' ').indexOf(' '+t+' ')<0)d.setAttribute('data-start','first')})()`;
+
+/** One hide rule and one "selected" rule per tab, generated so they can never drift from FEED_TABS. */
+const tabCss =
+  FEED_TABS.map((tab) => `html[data-tab="${tab}"] .card:not([data-tabs~="${tab}"])`).join(',') +
+  '{display:none}' +
+  FEED_TABS.map((tab) => `html[data-tab="${tab}"] #tab-${tab}`).join(',') +
+  '{background:var(--color-ink);color:var(--color-paper)}';
+---
+
+<!doctype html>
+<html lang={ui.htmlLang} data-card={card?.slug} data-card-tabs={card?.tabs.join(' ')}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {(draft || noindex) && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="canonical" href={absoluteUrl(localePath(locale))} />
+    {alternates('/').map((alt) => <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />)}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={ui.siteName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={absoluteUrl(path)} />
+    <meta property="og:locale" content={OG_LOCALE[locale]} />
+    <meta property="og:locale:alternate" content={OG_LOCALE[otherLocale(locale)]} />
+    {image && <meta property="og:image" content={image} />}
+    {image && <meta property="og:image:width" content="1200" />}
+    {image && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+
+    <script is:inline set:html={tabScript} />
+    <style is:inline set:html={tabCss}></style>
+    <script is:inline type="application/ld+json" set:html={serializeJsonLd(businessJsonLd(locale, image))} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

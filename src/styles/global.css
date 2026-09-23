@@ -1,0 +1,905 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. One accent (a calm teal), WhatsApp green only on WhatsApp
+ * buttons, and the phone's own system font — zero bytes of web fonts, and the
+ * text looks native on every device this audience owns.
+ */
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --color-ink: #0f172a;
+  --color-muted: #475569;
+  --color-line: #e2e8f0;
+  --color-paper: #ffffff;
+  --color-canvas: #eef3f1;
+  --color-accent: #0f766e;
+  --color-accent-strong: #115e59;
+  --color-accent-soft: #e7f5f2;
+  --color-whatsapp: #25d366;
+  --color-whatsapp-ink: #05301a;
+}
+
+:root {
+  /* Height of the sticky top bar; cards are sized to the screen minus this. */
+  --bar-h: 3.5rem;
+  /* The phone-shaped column on desktop. */
+  --col-w: 27.5rem;
+  color-scheme: light;
+}
+
+/* ---------------------------------------------------------------- scrolling
+ * The page itself scrolls (not an inner box): the phone's address bar can
+ * collapse for more room, lazy images load ahead of time, and Space/PageDown
+ * work without clicking first. `proximity` rather than `mandatory` so a card
+ * taller than the screen can be read to the end without being yanked back.
+ */
+html {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: var(--bar-h);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* No scrolling behind an open demo dialog. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  line-height: 1.5;
+}
+
+.page {
+  position: relative;
+  max-width: var(--col-w);
+  min-height: 100svh;
+  margin-inline: auto;
+  background: var(--color-paper);
+}
+
+/*
+ * A card fills the small viewport height (svh — stable while the address bar
+ * slides, unlike dvh) minus the bar. It may grow taller; proximity snapping
+ * then lets the visitor read it through.
+ */
+.card {
+  display: flex;
+  min-height: calc(100svh - var(--bar-h));
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* Chrome can open a card's page already scrolled to it, before any script. */
+@supports (scroll-initial-target: nearest) {
+  html:not([data-start='first']) .card:target,
+  html:not([data-start='first']) .card.is-start {
+    scroll-initial-target: nearest;
+  }
+}
+
+.card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem 1.25rem 5.25rem; /* bottom room for the WhatsApp button */
+  outline-offset: -3px;
+}
+
+.card-body:focus-visible {
+  outline: 3px solid var(--color-accent);
+}
+
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ top bar */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -4rem;
+  z-index: 50;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--bar-h);
+  padding-inline: 0.5rem;
+  background: rgb(255 255 255 / 0.94);
+  border-bottom: 1px solid var(--color-line);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+
+.tabs {
+  display: flex;
+  flex: 1;
+  gap: 0.15rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  /* Fade the right edge so a cut-off tab reads as "there is more", not as broken. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  padding-right: 1.25rem;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+/* The tabs only work once the head script has run. */
+html:not([data-tab]) .tabs {
+  visibility: hidden;
+}
+
+.tab {
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-muted);
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--color-ink);
+}
+
+.lang {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.5rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+/* -------------------------------------------------------------- typography */
+.card-heading {
+  font-size: 1.65rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.subheading {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.fine-print {
+  font-size: 0.925rem;
+  color: var(--color-muted);
+}
+.prose-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  font-size: 1.075rem;
+}
+
+/* ----------------------------------------------------------------- buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-block {
+  width: 100%;
+}
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-accent-strong);
+}
+.btn-secondary {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1.5px solid var(--color-line);
+}
+.btn-secondary:hover {
+  border-color: var(--color-muted);
+}
+.btn-whatsapp {
+  background: var(--color-whatsapp);
+  color: var(--color-whatsapp-ink);
+}
+
+/* Two equal buttons on one line, so the card's actions never spill below the fold. */
+.actions {
+  display: flex;
+  gap: 0.6rem;
+}
+.actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 0.4rem;
+  padding-inline: 0.75rem;
+  font-size: 1rem;
+}
+
+/* Always-visible WhatsApp button, kept inside the column on desktop. */
+.fab {
+  position: fixed;
+  z-index: 15;
+  right: max(1rem, calc((100vw - var(--col-w)) / 2 + 1rem));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: var(--color-whatsapp);
+  color: var(--color-whatsapp-ink);
+  box-shadow: 0 10px 25px -8px rgb(15 23 42 / 0.45);
+}
+
+/* Up/down arrows beside the column — desktop only. */
+.feed-arrows {
+  display: none;
+}
+
+/* ------------------------------------------------------------------- media */
+.img-missing {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: repeating-linear-gradient(135deg, #f1f5f9 0 12px, #e8eef4 12px 24px);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* Intro: the clip fills the card, the words sit on a gradient at the bottom. */
+.card-intro {
+  padding: 0;
+}
+.intro {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  background: #0f172a;
+  color: #fff;
+}
+.intro-clip {
+  position: absolute;
+  inset: 0;
+}
+.intro-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 4rem 1.25rem 6rem;
+  background: linear-gradient(to top, rgb(15 23 42 / 0.92) 55%, rgb(15 23 42 / 0));
+}
+.intro-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #99f6e4;
+}
+.intro-heading {
+  font-size: 2rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.intro-role {
+  font-size: 1.1rem;
+  color: #e2e8f0;
+}
+.swipe-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .swipe-hint svg {
+    animation: nudge 1.6s ease-in-out infinite;
+  }
+}
+@keyframes nudge {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.clip {
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+}
+.clip :is(.clip-poster, .clip-video) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.clip .img-missing.clip-poster {
+  background: linear-gradient(160deg, #134e4a, #0f172a);
+  color: #94a3b8;
+}
+.clip-video {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.clip.is-playing .clip-video {
+  opacity: 1;
+}
+.clip-controls {
+  position: absolute;
+  z-index: 2;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.clip-btn {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.6);
+  color: #fff;
+  cursor: pointer;
+}
+.clip .icon-pause,
+.clip.is-playing .icon-play,
+.clip .icon-unmuted,
+.clip.is-unmuted .icon-muted {
+  display: none;
+}
+.clip.is-playing .icon-pause,
+.clip.is-unmuted .icon-unmuted {
+  display: block;
+}
+
+/* --------------------------------------------------------- before / after */
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.compare-frame {
+  --pos: 50%;
+  position: relative;
+  height: clamp(11rem, 31svh, 22rem);
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: #f8fafc;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: ew-resize;
+}
+.compare-frame:focus-within {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.compare-frame :is(img, .img-missing) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  pointer-events: none;
+}
+.compare-before {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--pos)) 0 0);
+}
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pos);
+  width: 3px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.15);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.compare-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-ink);
+  box-shadow: 0 4px 14px rgb(15 23 42 / 0.25);
+  transform: translate(-50%, -50%);
+}
+.compare-tag {
+  position: absolute;
+  top: 0.6rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.75);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+.compare-tag-before {
+  left: 0.6rem;
+}
+.compare-tag-after {
+  right: 0.6rem;
+}
+.compare-single {
+  cursor: default;
+}
+.compare-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.925rem;
+  color: var(--color-muted);
+}
+.compare-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------- outcomes */
+.outcomes,
+.tier-includes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.outcomes {
+  font-size: 0.975rem;
+}
+.outcomes li,
+.tier-includes li {
+  display: flex;
+  gap: 0.5rem;
+}
+.outcome-icon {
+  flex: none;
+  margin-top: 0.2rem;
+  color: var(--color-accent);
+}
+
+.owner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.owner-photo {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+.owner-quote {
+  font-style: italic;
+}
+.owner-name {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+/* ------------------------------------------------------------------ pricing */
+.tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 1rem;
+}
+.tier-featured {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+.tier-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tier-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.tier-badge {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.tier-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.tier-price strong {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+.tier-from,
+.tier-billing {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+.tier-includes {
+  gap: 0.15rem;
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- inclusions */
+.inclusions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.inclusion {
+  display: flex;
+  gap: 0.75rem;
+}
+.inclusion-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.inclusion-title {
+  font-weight: 700;
+}
+.inclusion-body {
+  font-size: 0.95rem;
+  color: var(--color-muted);
+}
+
+/* -------------------------------------------------------------------- about */
+.portrait {
+  width: 100%;
+  max-height: 42svh;
+  aspect-ratio: 4 / 5;
+  border-radius: 1.25rem;
+  object-fit: cover;
+}
+
+/* ------------------------------------------------------------------ contact */
+.contact-number {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.contact-number a {
+  color: var(--color-ink);
+}
+.contact-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-line);
+}
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+.field :is(input, textarea) {
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 400;
+}
+.field-required {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+.honeypot {
+  position: absolute;
+  left: -9999px;
+}
+
+/* ---------------------------------------------------------------------- end */
+.card-end {
+  justify-content: center;
+}
+.end {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.restart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* --------------------------------------------------------------- demo dialog */
+.demo {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+.demo[open] {
+  display: flex;
+  flex-direction: column;
+}
+.demo::backdrop {
+  background: rgb(15 23 42 / 0.6);
+}
+.demo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.demo-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.demo-close {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.demo-close:hover {
+  background: var(--color-canvas);
+}
+.demo-lead {
+  padding: 0.75rem 1rem 0;
+  color: var(--color-muted);
+}
+.demo-devices {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+.demo-device {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.4rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.demo-device[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+.demo-device-size {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+.demo-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1rem;
+  background: var(--color-canvas);
+}
+/* The frame keeps its real device width; the script scales it to fit. */
+.demo-screen {
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 12px 30px -10px rgb(15 23 42 / 0.35);
+}
+.demo-screen iframe {
+  display: block;
+  border: 0;
+  transform-origin: 0 0;
+}
+/* Screenshots mode: the capture for the chosen device, whole, centred in the stage. */
+.demo-shots {
+  display: grid;
+  place-items: center;
+}
+.demo-shot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.demo-shot[hidden] {
+  display: none;
+}
+.demo-shot :is(img, .img-missing) {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 30px -10px rgb(15 23 42 / 0.35);
+}
+.demo-shot picture {
+  display: contents;
+}
+.demo-recorded {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding-bottom: 1rem;
+}
+.demo-clip {
+  flex: 1;
+  margin-inline: 1rem;
+  border-radius: 0.75rem;
+}
+
+/* -------------------------------------------------------------------- 404 */
+.not-found {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  padding: 3rem 1.25rem;
+}
+.not-found section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+/* ----------------------------------------------------------------- desktop
+ * A centred phone-shaped column on a calm backdrop, with visible arrows —
+ * deliberate, not a stretched phone site.
+ */
+@media (min-width: 768px) {
+  html {
+    background:
+      radial-gradient(60rem 40rem at 15% 10%, #d5ece6 0%, transparent 60%),
+      radial-gradient(50rem 40rem at 90% 90%, #e3eef8 0%, transparent 60%),
+      var(--color-canvas);
+    background-attachment: fixed;
+  }
+  .page {
+    box-shadow:
+      0 0 0 1px var(--color-line),
+      0 40px 90px -30px rgb(15 23 42 / 0.3);
+  }
+  .feed-arrows {
+    position: fixed;
+    top: 50%;
+    left: calc(50% + var(--col-w) / 2 + 1.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transform: translateY(-50%);
+  }
+  .arrow {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    box-shadow: 0 6px 18px -8px rgb(15 23 42 / 0.3);
+    cursor: pointer;
+  }
+  .arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .demo {
+    width: min(72rem, 94vw);
+    height: min(52rem, 92vh);
+    margin: auto;
+    border-radius: 1.25rem;
+  }
+}

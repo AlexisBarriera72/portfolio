@@ -1,0 +1,80 @@
+---
+/**
+ * A short muted clip. Nothing here autoplays or downloads on its own: the
+ * <source> elements carry `data-src`, and src/scripts/feed.ts attaches them
+ * only for the active card and its neighbours, then plays the active one —
+ * unless the visitor prefers reduced motion. (An `autoplay` attribute would
+ * start fetching and playing before any script could respect that.)
+ *
+ * The poster is a real <picture> underneath the video rather than the video's
+ * `poster` attribute, so it gets responsive sizes and can be the page's LCP
+ * image. The video fades in over it once it is actually playing.
+ */
+import type { Clip, Locale } from '../data/types';
+import { t } from '../i18n';
+import Icon from './Icon.astro';
+import Img from './Img.astro';
+
+interface Props {
+  clip: Clip;
+  locale: Locale;
+  /** Load the poster immediately (the page's own card). */
+  eager?: boolean;
+  class?: string;
+}
+
+const { clip, locale, eager = false, class: className } = Astro.props;
+const ui = t(locale).video;
+const transcript = clip.transcript?.[locale];
+---
+
+<div class:list={['clip', className]} data-clip>
+  <Img image={{ src: clip.poster, alt: clip.posterAlt }} locale={locale} eager={eager} class="clip-poster" />
+  <video class="clip-video" muted loop playsinline preload="none" disableRemotePlayback aria-hidden="true">
+    <source data-src={clip.webm} type="video/webm" />
+    <source data-src={clip.mp4} type="video/mp4" />
+    {
+      clip.captions && (
+        <track kind="captions" src={clip.captions[locale]} srclang={locale} label={t(locale).language.label} default />
+      )
+    }
+  </video>
+  <div class="clip-controls">
+    <button
+      type="button"
+      class="clip-btn"
+      data-clip-toggle
+      data-label-play={ui.play}
+      data-label-pause={ui.pause}
+      aria-label={ui.play}
+    >
+      <Icon name="play" class="icon-play" />
+      <Icon name="pause" class="icon-pause" />
+    </button>
+    {
+      clip.sound && (
+        <button
+          type="button"
+          class="clip-btn"
+          data-clip-sound
+          data-label-on={ui.soundOn}
+          data-label-off={ui.soundOff}
+          aria-label={ui.soundOn}
+        >
+          <Icon name="sound-off" class="icon-muted" />
+          <Icon name="sound-on" class="icon-unmuted" />
+        </button>
+      )
+    }
+  </div>
+  {
+    transcript && (
+      <div class="sr-only">
+        <p>{ui.transcriptHeading}:</p>
+        {transcript.map((line) => (
+          <p>{line}</p>
+        ))}
+      </div>
+    )
+  }
+</div>
