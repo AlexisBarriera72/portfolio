@@ -222,6 +222,22 @@ test.describe('one screen per card', () => {
   }
 });
 
+test.describe('project buttons', () => {
+  for (const path of ['/', '/en/']) {
+    test(`keep their label on one line and whole at 360×640 on ${path}`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 640 });
+      await page.goto(path);
+      const bad = await page.locator('.card-project .actions .btn').evaluateAll((buttons) =>
+        buttons
+          .filter((b) => b.checkVisibility())
+          .filter((b) => b.scrollWidth > b.clientWidth + 1 || b.getBoundingClientRect().height > 52)
+          .map((b) => `${b.closest('.card')!.id}: ${b.textContent!.trim()}`),
+      );
+      expect(bad).toEqual([]);
+    });
+  }
+});
+
 test.describe('pricing', () => {
   test('each plan opens its full list in a panel, and closing it returns to the card', async ({ page }) => {
     await page.goto('/precios/');
