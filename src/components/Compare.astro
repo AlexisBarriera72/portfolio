@@ -1,0 +1,54 @@
+---
+/**
+ * Before/after in one box: the "after" shot underneath, the "before" shot on
+ * top clipped at --pos, and a handle between them. Both shots are cropped from
+ * the top the same way, so the comparison lines up.
+ *
+ * Controls:
+ *  - drag anywhere on the box (src/scripts/compare.ts). `touch-action: pan-y`
+ *    leaves vertical swipes to the feed, so the box never traps scrolling;
+ *  - a real range input for keyboard and screen readers — visually hidden, its
+ *    focus ring drawn on the box.
+ * Without JavaScript it is a still 50/50 split with both halves visible.
+ */
+import type { Locale, ProjectCard } from '../data/types';
+import { t } from '../i18n';
+import Icon from './Icon.astro';
+import Img from './Img.astro';
+
+interface Props {
+  card: ProjectCard;
+  locale: Locale;
+  eager: boolean;
+}
+
+const { card, locale, eager } = Astro.props;
+const ui = t(locale).project;
+const { before, after, note } = card.beforeAfter;
+const noteId = `note-${card.slug}`;
+---
+
+<figure class="compare" data-compare>
+  <div class="compare-frame">
+    <Img image={after} locale={locale} eager={eager} class="compare-img" />
+    <div class="compare-before">
+      <Img image={before} locale={locale} eager={eager} class="compare-img" />
+    </div>
+    <span class="compare-tag compare-tag-before" aria-hidden="true">{ui.before}</span>
+    <span class="compare-tag compare-tag-after" aria-hidden="true">{ui.after}</span>
+    <span class="compare-handle" aria-hidden="true"><span class="compare-knob"><Icon name="compare" size={18} /></span></span>
+    <input
+      class="compare-range sr-only"
+      type="range"
+      min="0"
+      max="100"
+      value="50"
+      aria-label={ui.comparisonLabel(card.client.name)}
+      aria-describedby={note ? noteId : undefined}
+    />
+  </div>
+  <figcaption class="compare-caption">
+    <span class="compare-hint" aria-hidden="true"><Icon name="compare" size={16} />{ui.compareHint}</span>
+    {note && <span id={noteId}>{note[locale]}</span>}
+  </figcaption>
+</figure>

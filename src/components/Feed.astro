@@ -1,0 +1,70 @@
+---
+/**
+ * The feed: every card, always in the HTML — for search engines, for screen
+ * readers, and so a tab switch never waits on the network. Tabs only hide
+ * cards (html[data-tab] + the rules in Base.astro).
+ *
+ * Each <li> carries what the script needs to keep the URL and the language
+ * link in step with the card on screen.
+ */
+import { cards, pathForCard } from '../data';
+import type { Card, Locale } from '../data/types';
+import { otherLocale, t } from '../i18n';
+import { pageTitle } from '../lib/seo';
+import About from './cards/About.astro';
+import Contact from './cards/Contact.astro';
+import End from './cards/End.astro';
+import Inclusions from './cards/Inclusions.astro';
+import Intro from './cards/Intro.astro';
+import Pricing from './cards/Pricing.astro';
+import Project from './cards/Project.astro';
+
+interface Props {
+  locale: Locale;
+  /** The card this page is for — its images load first. */
+  current: Card;
+}
+
+const { locale, current } = Astro.props;
+
+const startScript = `(function(){var d=document.documentElement,t=d.getAttribute('data-tab'),c=d.getAttribute('data-start')==='first'?document.querySelector('.feed>.card[data-tabs~="'+t+'"]'):document.getElementById(d.getAttribute('data-card')||'');if(!c)return;if('scrollRestoration' in history)history.scrollRestoration='manual';c.scrollIntoView({block:'start',behavior:'instant'})})()`;
+const other = otherLocale(locale);
+const ui = t(locale);
+---
+
+<div id="feed" class="feed-panel" role="tabpanel" aria-labelledby="tab-para-ti" tabindex="-1">
+  <ul class="feed" aria-label={ui.nav.feedLabel}>
+    {
+      cards.map((card) => {
+        const eager = card.slug === current.slug;
+        return (
+          <li
+            class:list={['card', { 'is-start': eager }]}
+            id={card.slug}
+            data-type={card.type}
+            data-tabs={card.tabs.join(' ')}
+            data-path={pathForCard(card, locale)}
+            data-alt-path={pathForCard(card, other)}
+            data-title={pageTitle(card, locale)}
+          >
+            <article class:list={['card-body', `card-${card.type}`]} tabindex="0" aria-labelledby={`h-${card.slug}`}>
+              {card.type === 'intro' && <Intro card={card} locale={locale} eager={eager} />}
+              {card.type === 'project' && <Project card={card} locale={locale} eager={eager} />}
+              {card.type === 'pricing' && <Pricing card={card} locale={locale} />}
+              {card.type === 'inclusions' && <Inclusions card={card} locale={locale} />}
+              {card.type === 'about' && <About card={card} locale={locale} eager={eager} />}
+              {card.type === 'contact' && <Contact card={card} locale={locale} />}
+              {card.type === 'end' && <End card={card} locale={locale} />}
+            </article>
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>
+<p class="sr-only" aria-live="polite" data-feed-status data-template={ui.nav.position}></p>
+{/*
+  Put the page's own card on screen before the first paint where possible (the
+  head script already chose the tab). Same text on every page: one CSP hash.
+*/}
+<script is:inline set:html={startScript} />

@@ -3,7 +3,7 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import { site } from './src/data/site.ts';
-import { t } from './src/i18n/index.ts';
+import { localePath, t } from './src/i18n/index.ts';
 import { DEFAULT_LOCALE, LOCALES } from './src/data/types.ts';
 
 // The origin lives in src/data/site.ts, so the sitemap, canonical URLs and
@@ -19,6 +19,9 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [
     sitemap({
+      // Only the language homes: every card page carries the same feed and
+      // names its home as canonical (see src/layouts/Base.astro).
+      filter: (page) => LOCALES.some((locale) => new URL(page).pathname === localePath(locale)),
       i18n: {
         defaultLocale: DEFAULT_LOCALE,
         locales: Object.fromEntries(LOCALES.map((locale) => [locale, t(locale).htmlLang])),

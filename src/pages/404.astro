@@ -1,0 +1,24 @@
+---
+/** Bilingual, since a broken link says nothing about the visitor's language. */
+import { DEFAULT_LOCALE, LOCALES } from '../data/types';
+import { localePath, t } from '../i18n';
+import Base from '../layouts/Base.astro';
+
+const ui = t(DEFAULT_LOCALE);
+---
+
+<Base locale={DEFAULT_LOCALE} title={`${ui.notFound.title} · ${ui.siteName}`} description={ui.notFound.body} path="/404/" noindex>
+  <main class="page not-found">
+    {
+      LOCALES.map((locale) => (
+        <section lang={t(locale).htmlLang}>
+          <h1 class="card-heading">{t(locale).notFound.title}</h1>
+          <p>{t(locale).notFound.body}</p>
+          <a class="btn btn-primary" href={localePath(locale)}>
+            {t(locale).notFound.home}
+          </a>
+        </section>
+      ))
+    }
+  </main>
+</Base>

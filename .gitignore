@@ -3,3 +3,5 @@ node_modules/
 .astro/
 .DS_Store
 *.log
+test-results/
+playwright-report/

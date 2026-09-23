@@ -1,0 +1,17 @@
+---
+/** Up/down buttons beside the column on desktop, where there is no swipe. */
+import type { Locale } from '../data/types';
+import { t } from '../i18n';
+import Icon from './Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const ui = t(Astro.props.locale).nav;
+---
+
+<nav class="feed-arrows" aria-label={ui.feedLabel}>
+  <button type="button" class="arrow" data-feed-prev aria-label={ui.previous}><Icon name="arrow-up" size={22} /></button>
+  <button type="button" class="arrow" data-feed-next aria-label={ui.next}><Icon name="arrow-down" size={22} /></button>
+</nav>

@@ -13,7 +13,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "check:launch": "vitest run --mode launch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
@@ -23,6 +24,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "1.56.1",
     "typescript": "^5.9.3",
     "vitest": "^5.0.1"
   }

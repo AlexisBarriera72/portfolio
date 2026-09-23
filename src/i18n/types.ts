@@ -61,13 +61,24 @@ export interface UIStrings {
     /** Accessible name for the phone/tablet/desktop button group. */
     deviceGroupLabel: string;
     devices: Record<DeviceId, string>;
-    /** "Ver el sitio de El Break" — the single outbound link. */
+    /** "Ver el sitio de El Break" — the single outbound link's accessible name. */
     visitSite: (client: string) => string;
+    /** Its visible text: short, so it fits beside the demo button. */
+    visitSiteShort: string;
     /** Appended to external links for screen readers. */
     opensInNewTab: string;
     /** Shown over a recorded demo when the site cannot be embedded. */
     recordedDemoNote: string;
     clientIn: (city: string) => string;
+    /** Button that opens the device demo (live site). */
+    openDemo: string;
+    /** Button that opens the device demo when it is a recording. */
+    watchDemo: string;
+    /** Accessible name for the open-demo button: says whose site. */
+    openDemoLabel: (client: string) => string;
+    closeDemo: string;
+    /** Under the before/after box, for people who don't know it moves. */
+    compareHint: string;
   };
 
   pricing: {
@@ -87,6 +98,8 @@ export interface UIStrings {
     /** Used when no form endpoint is configured. */
     emailInstead: string;
     required: string;
+    /** Accessible name of the floating WhatsApp button. */
+    whatsappButton: string;
   };
 
   video: {
@@ -95,9 +108,17 @@ export interface UIStrings {
     pause: string;
     /** Heading for the visually-hidden transcript. */
     transcriptHeading: string;
+    soundOn: string;
+    soundOff: string;
   };
 
   end: {
     startOver: string;
+  };
+
+  notFound: {
+    title: string;
+    body: string;
+    home: string;
   };
 }

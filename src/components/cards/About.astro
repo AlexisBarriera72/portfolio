@@ -1,0 +1,18 @@
+---
+import type { AboutCard, Locale } from '../../data/types';
+import Img from '../Img.astro';
+
+interface Props {
+  card: AboutCard;
+  locale: Locale;
+  eager: boolean;
+}
+
+const { card, locale, eager } = Astro.props;
+---
+
+<Img image={card.portrait} locale={locale} eager={eager} sizes="(min-width: 768px) 400px, 90vw" class="portrait" />
+<h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+<div class="prose-card">
+  {card.body[locale].map((paragraph) => <p>{paragraph}</p>)}
+</div>

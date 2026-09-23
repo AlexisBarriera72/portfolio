@@ -1,0 +1,27 @@
+---
+import type { IntroCard, Locale } from '../../data/types';
+import { t } from '../../i18n';
+import Clip from '../Clip.astro';
+import Cta from '../Cta.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  card: IntroCard;
+  locale: Locale;
+  eager: boolean;
+}
+
+const { card, locale, eager } = Astro.props;
+const ui = t(locale);
+---
+
+<div class="intro">
+  <Clip clip={card.clip} locale={locale} eager={eager} class="intro-clip" />
+  <div class="intro-copy">
+    <p class="intro-name">{card.name}</p>
+    <h2 id={`h-${card.slug}`} class="intro-heading">{card.heading[locale]}</h2>
+    <p class="intro-role">{card.role[locale]}</p>
+    <Cta cta={card.cta} locale={locale} class="self-start" />
+    <p class="swipe-hint" aria-hidden="true"><Icon name="arrow-up" size={18} />{ui.nav.swipeHint}</p>
+  </div>
+</div>

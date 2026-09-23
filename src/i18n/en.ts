@@ -45,9 +45,15 @@ export const en: UIStrings = {
       desktop: 'Desktop',
     },
     visitSite: (client) => `Visit ${client}’s website`,
+    visitSiteShort: 'Visit the site',
     opensInNewTab: 'opens in a new tab',
     recordedDemoNote: 'Recording of the real site',
     clientIn: (city) => `Client in ${city}`,
+    openDemo: 'Try it',
+    watchDemo: 'Watch it work',
+    openDemoLabel: (client) => `Try ${client}’s site on a phone, tablet and computer`,
+    closeDemo: 'Close',
+    compareHint: 'Slide to compare',
   },
 
   pricing: {
@@ -67,15 +73,24 @@ export const en: UIStrings = {
     formHeading: 'Send me a message',
     emailInstead: 'Open my email',
     required: 'required',
+    whatsappButton: 'Message me on WhatsApp',
   },
 
   video: {
     play: 'Play the video',
     pause: 'Pause the video',
     transcriptHeading: 'What the video says',
+    soundOn: 'Turn the sound on',
+    soundOff: 'Turn the sound off',
   },
 
   end: {
     startOver: 'Watch again from the start',
+  },
+
+  notFound: {
+    title: 'This page does not exist',
+    body: 'The link may be mistyped, or that page is no longer here.',
+    home: 'Go to the start',
   },
 };

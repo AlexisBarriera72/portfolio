@@ -1,0 +1,49 @@
+---
+/**
+ * One call to action. WhatsApp, phone and email come from site config, so a
+ * number is written in exactly one place. Links to another card go to that
+ * card's page; the feed script turns them into a scroll within the page.
+ */
+import type { Cta, Locale } from '../data/types';
+import { t } from '../i18n';
+import { ctaLink } from '../lib/links';
+import Icon, { type UiIcon } from './Icon.astro';
+
+interface Props {
+  cta: Cta;
+  locale: Locale;
+  variant?: 'primary' | 'secondary';
+  class?: string;
+}
+
+const { cta, locale, variant = 'primary', class: className } = Astro.props;
+const link = ctaLink(cta, locale);
+
+const ICON: Record<Cta['kind'], UiIcon> = {
+  whatsapp: 'chat',
+  tel: 'phone',
+  email: 'mail',
+  external: 'external',
+  card: 'arrow-down',
+};
+
+const style = cta.kind === 'whatsapp' ? 'btn-whatsapp' : variant === 'primary' ? 'btn-primary' : 'btn-secondary';
+
+// An aria-label replaces everything inside the link, including the hidden
+// "opens in a new tab" note — so when there is one, the note goes into it.
+const newTab = t(locale).project.opensInNewTab;
+const ariaLabel = cta.ariaLabel && (link.external ? `${cta.ariaLabel[locale]} (${newTab})` : cta.ariaLabel[locale]);
+---
+
+<a
+  class:list={['btn', style, className]}
+  href={link.href}
+  target={link.external ? '_blank' : undefined}
+  rel={link.external ? 'noopener' : undefined}
+  aria-label={ariaLabel}
+  data-card-link={link.card}
+>
+  <Icon name={ICON[cta.kind]} />
+  <span>{cta.label[locale]}</span>
+  {link.external && !ariaLabel && <span class="sr-only">({newTab})</span>}
+</a>

@@ -1,0 +1,53 @@
+---
+/**
+ * One row: the tab filter (scrolls sideways on narrow phones) and the language
+ * link. The tabs follow the ARIA tabs pattern; src/scripts/feed.ts gives them
+ * arrow-key movement and makes them filter the feed. Without JavaScript they
+ * could not filter anything, so CSS hides them until the head script has run.
+ */
+import { DEFAULT_TAB, FEED_TABS, type Locale } from '../data/types';
+import { otherLocale, t } from '../i18n';
+
+interface Props {
+  locale: Locale;
+  /** The same card in the other language. */
+  altPath: string;
+}
+
+const { locale, altPath } = Astro.props;
+const ui = t(locale);
+const other = otherLocale(locale);
+---
+
+<a class="skip-link" href="#feed">{ui.nav.skipToContent}</a>
+<header class="topbar">
+  <h1 class="sr-only">{ui.siteName}</h1>
+  <div class="tabs" role="tablist" aria-label={ui.tabsLabel}>
+    {
+      FEED_TABS.map((tab) => (
+        <button
+          type="button"
+          role="tab"
+          id={`tab-${tab}`}
+          class="tab"
+          data-tab={tab}
+          aria-controls="feed"
+          aria-selected={tab === DEFAULT_TAB ? 'true' : 'false'}
+          tabindex={tab === DEFAULT_TAB ? 0 : -1}
+        >
+          {ui.tabs[tab]}
+        </button>
+      ))
+    }
+  </div>
+  <a
+    class="lang"
+    href={altPath}
+    hreflang={t(other).htmlLang}
+    lang={t(other).htmlLang}
+    data-lang-link
+    aria-label={`${ui.language.label}: ${ui.language.switchTo}`}
+  >
+    {other.toUpperCase()}
+  </a>
+</header>

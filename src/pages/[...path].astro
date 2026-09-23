@@ -1,0 +1,57 @@
+---
+/**
+ * One page per card per language: /, /el-break/, /en/, /en/el-break/ …
+ * Each renders the whole feed and starts at its own card; they differ in
+ * title, description and link-preview image.
+ */
+import { getImage } from 'astro:assets';
+import FeedArrows from '../components/FeedArrows.astro';
+import Feed from '../components/Feed.astro';
+import TopBar from '../components/TopBar.astro';
+import WhatsAppButton from '../components/WhatsAppButton.astro';
+import { cardPages, pathForCard } from '../data';
+import { resolveImage } from '../data/media';
+import { absoluteUrl, otherLocale } from '../i18n';
+import Base from '../layouts/Base.astro';
+import { pageDescription, pageTitle, shareImagePath } from '../lib/seo';
+
+export function getStaticPaths() {
+  return cardPages().map(({ locale, card, path }) => ({
+    // "/" → undefined, "/en/el-break/" → "en/el-break"
+    params: { path: path === '/' ? undefined : path.slice(1, -1) },
+    props: { locale, card, path },
+  }));
+}
+
+const { locale, card, path } = Astro.props;
+
+/** 1200×630 JPEG cropped from the top: the size and format every link preview (WhatsApp included) accepts. */
+const shareSource = resolveImage(shareImagePath(card));
+const share = shareSource
+  ? await getImage({ src: shareSource, width: 1200, height: 630, fit: 'cover', position: 'top', format: 'jpeg' })
+  : undefined;
+---
+
+<Base
+  locale={locale}
+  title={pageTitle(card, locale)}
+  description={pageDescription(card, locale)}
+  path={path}
+  card={card}
+  image={share ? absoluteUrl(share.src) : undefined}
+>
+  <div class="page">
+    <TopBar locale={locale} altPath={pathForCard(card, otherLocale(locale))} />
+    <main>
+      <Feed locale={locale} current={card} />
+    </main>
+    <WhatsAppButton locale={locale} />
+  </div>
+  <FeedArrows locale={locale} />
+</Base>
+
+<script>
+  import '../scripts/feed';
+  import '../scripts/compare';
+  import '../scripts/demo';
+</script>
