@@ -198,6 +198,40 @@ test.describe('active card', () => {
   });
 });
 
+test.describe('a resize in the middle of a jump', () => {
+  // The jump is animated (no reduced motion), so there is a moment to resize in.
+  test('lands on the card the jump was going to: screen, address, focus and announcement agree', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/');
+    await expectAligned(page, 'inicio');
+    const end = await page.evaluate(() => {
+      const s = window.__feedScroller();
+      return s.scrollHeight - s.clientHeight;
+    });
+    await page.keyboard.press('End');
+    // Provably in flight: past the first card, well short of the last.
+    await page.waitForFunction(
+      (end) => {
+        const top = window.__feedScroller().scrollTop;
+        return top > 20 && top < end - 200;
+      },
+      end,
+      { polling: 'raf' },
+    );
+    const size = page.viewportSize()!;
+    // A phone turned sideways; on a desktop, the window made shorter.
+    await page.setViewportSize(
+      isMobile ? { width: size.height, height: size.width } : { width: size.width, height: size.height - 150 },
+    );
+    await expectAligned(page, 'fin');
+    await expect(page).toHaveURL(/\/fin\/$/);
+    expect(await page.evaluate(() => document.activeElement?.closest('.card')?.id)).toBe('fin');
+    await expect(page.locator('[data-feed-status]')).toContainText((await page.locator('#h-fin').textContent())!.trim());
+  });
+});
+
 test.describe('one screen per card', () => {
   /**
    * At normal text size a card fits its panel — nothing to scroll inside it,

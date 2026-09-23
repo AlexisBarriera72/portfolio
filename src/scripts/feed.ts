@@ -20,7 +20,8 @@
  *    the ends;
  *  - the desktop arrows (like PageUp/PageDown), card-to-card links, and
  *    "start over";
- *  - after a resize (rotation, a toolbar), the same card stays on screen.
+ *  - after a resize (rotation, a toolbar), the same card stays on screen —
+ *    or, in the middle of a jump, the card the jump is going to.
  */
 import { DEFAULT_TAB, FEED_TABS, type FeedTab } from '../data/types';
 import { format } from '../i18n/format';
@@ -42,8 +43,14 @@ function init(feed: HTMLElement): void {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let active: HTMLLIElement | undefined;
-  /** The card a key or arrow press is still scrolling to — the next press continues from there. */
-  let enRoute: HTMLElement | undefined;
+  /**
+   * The card a key, arrow or link is still scrolling to. The next press
+   * continues from there, and a resize puts this card on screen, not the one
+   * the scroll happened to be passing. It lasts until the card arrives, or
+   * the reader takes over (a finger, the wheel, a click in the feed), or the
+   * tab changes — not merely until some scroll ends.
+   */
+  let destination: HTMLElement | undefined;
 
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -83,7 +90,7 @@ function init(feed: HTMLElement): void {
 
   /** Move to a card on purpose (keys, arrows, links): focus it and say where we are. */
   const goTo = (card: HTMLElement, edge: 'start' | 'end' = 'start') => {
-    enRoute = card;
+    destination = card;
     scrollToCard(card, true, edge);
     bodyOf(card).focus({ preventScroll: true });
     const list = visibleCards();
@@ -128,8 +135,8 @@ function init(feed: HTMLElement): void {
   const move = (direction: 1 | -1, size: 'line' | 'page') => {
     const list = visibleCards();
     // Pressed again before the last move arrived: continue from where it is going.
-    if (enRoute && list.includes(enRoute as HTMLLIElement) && enRoute !== active) {
-      const target = list[list.indexOf(enRoute as HTMLLIElement) + direction];
+    if (destination && list.includes(destination as HTMLLIElement) && destination !== active) {
+      const target = list[list.indexOf(destination as HTMLLIElement) + direction];
       if (target) goTo(target, direction > 0 ? 'start' : 'end');
       return;
     }
@@ -161,15 +168,29 @@ function init(feed: HTMLElement): void {
   };
   // `scrollend` doesn't bubble: listen in the capture phase for the feed and the cards.
   document.addEventListener('scrollend', updateArrows, true);
-  // However a scroll ended (arrived, or a finger took over), a move is no longer in flight.
+
+  // The reader taking over ends a jump: from then on the feed goes where they take it.
+  for (const type of ['touchstart', 'wheel', 'pointerdown'] as const) {
+    feed.addEventListener(
+      type,
+      () => {
+        destination = undefined;
+      },
+      { passive: true },
+    );
+  }
+  // A jump that stopped short of its card (the browser cut the scroll off —
+  // a resize re-snapping the feed, say) carries on to it.
   feed.addEventListener('scrollend', () => {
-    enRoute = undefined;
+    if (!destination || destination === active || !inTab(destination)) return;
+    const top = positionOf(destination);
+    if (Math.abs(feed.scrollTop - top) > EDGE) feed.scrollTo({ top, behavior: behavior(true) });
   });
 
   /* ------------------------------------------------------- active card */
 
   const activate = (card: HTMLLIElement) => {
-    if (card === enRoute) enRoute = undefined;
+    if (card === destination) destination = undefined;
     if (card === active) return;
     active = card;
 
@@ -240,13 +261,16 @@ function init(feed: HTMLElement): void {
   // A resize (rotation, a toolbar, the on-screen keyboard) changes every
   // card's height. Keep the same card on screen — put it back exactly, rather
   // than trust the browser's re-snap to pick the same one — and rebuild the
-  // observer's band for the new height.
+  // observer's band for the new height. In the middle of a jump, "the same
+  // card" is the one the jump is going to: the one already focused and
+  // announced, so what is on screen, the address and the focus agree.
   let lastHeight = feed.clientHeight;
   new ResizeObserver(() => {
     if (feed.clientHeight === lastHeight) return;
     lastHeight = feed.clientHeight;
     observe();
-    if (active && inTab(active)) feed.scrollTo({ top: positionOf(active), behavior: 'instant' });
+    const keep = [destination, active].find((card) => card && inTab(card));
+    if (keep) feed.scrollTo({ top: positionOf(keep), behavior: 'instant' });
     check();
   }).observe(feed);
 
@@ -271,6 +295,7 @@ function init(feed: HTMLElement): void {
     showTab(tab);
     history.pushState({ tab }, '', `${first.dataset.path}${tabSearch(tab)}`);
     active = undefined;
+    destination = undefined;
     bodyOf(first).scrollTop = 0;
     feed.scrollTo({ top: 0, behavior: 'instant' });
     activate(first);
@@ -306,6 +331,7 @@ function init(feed: HTMLElement): void {
     showTab(FEED_TABS.includes(tab) ? tab : DEFAULT_TAB);
     const card = visibleCards().find((c) => c.dataset.path === location.pathname) ?? visibleCards()[0];
     active = undefined;
+    destination = undefined;
     if (card) {
       scrollToCard(card, false);
       activate(card);
