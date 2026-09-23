@@ -10,16 +10,16 @@ import type {
   ProjectCard,
   SiteConfig,
 } from './types';
-import { type CardEntry, MAX_CLIP_BYTES, validate } from './validate';
+import { type CardEntry, MAX_CLIP_BYTES, type ValidateOptions, validate } from './validate';
 
 const l = (text: string) => ({ es: text, en: text });
-const img = (src: string, width = 780, height = 1688) => ({ src, alt: l('alt'), width, height });
+const img = (src: string) => ({ src, alt: l('alt') });
 
 /** A small feed that passes every rule. Each test breaks exactly one thing. */
 function fixture() {
   const site: SiteConfig = {
     url: 'https://alexis.dev',
-    person: { name: 'Alexis', role: l('role'), portrait: img('/media/me.webp', 800, 1000) },
+    person: { name: 'Alexis', role: l('role'), portrait: img('me.webp') },
     city: 'Ponce',
     serviceArea: ['Ponce', 'Yauco'],
     geo: { lat: 18, lng: -66 },
@@ -28,7 +28,7 @@ function fixture() {
       phone: { e164: '+17870000000', display: '(787) 000-0000' },
       email: 'hola@alexis.dev',
     },
-    defaultShareImage: '/media/share.jpg',
+    defaultShareImage: 'share.jpg',
   };
   const intro: IntroCard = {
     type: 'intro',
@@ -41,11 +41,8 @@ function fixture() {
     clip: {
       webm: '/media/intro.webm',
       mp4: '/media/intro.mp4',
-      poster: '/media/intro.jpg',
+      poster: 'intro.jpg',
       posterAlt: l('poster'),
-      width: 1080,
-      height: 1920,
-      durationSec: 9,
     },
     cta: { kind: 'card', target: 'precios', label: l('Precios') },
   };
@@ -56,7 +53,7 @@ function fixture() {
     order: 10,
     heading: l('El Break'),
     client: { name: 'El Break', kind: l('Food truck'), city: 'Yauco' },
-    beforeAfter: { before: img('/media/antes.webp'), after: img('/media/despues.webp') },
+    beforeAfter: { before: img('antes.webp'), after: img('despues.webp') },
     demo: { mode: 'live', title: l('demo'), framingCheckedOn: '2026-09-01' },
     outcomes: [l('Toma órdenes')],
     liveUrl: 'https://elbreak.pr',
@@ -88,7 +85,7 @@ function fixture() {
     tabs: ['para-ti', 'sobre-mi'],
     order: 50,
     heading: l('Yo'),
-    portrait: img('/media/me.webp', 800, 1000),
+    portrait: img('me.webp'),
     body: { es: ['p'], en: ['p'] },
   };
   const contact: ContactCard = {
@@ -122,10 +119,16 @@ function entriesOf(f: Fixture): CardEntry[] {
 const TODAY = '2026-09-22';
 
 /** Runs the validator on a fixture after `change` breaks one thing in it. */
-function problemsAfter(change: (f: Fixture) => void, strict = false, fileSize?: (p: string) => number | undefined) {
+type Disk = Pick<ValidateOptions, 'fileSize' | 'imageSize'>;
+
+/** Every file exists; every image is a 780×1688 phone screenshot. */
+const fullDisk: Disk = { fileSize: () => 1000, imageSize: () => ({ width: 780, height: 1688 }) };
+
+/** Runs the validator on a fixture after `change` breaks one thing in it. */
+function problemsAfter(change: (f: Fixture) => void, strict = false, disk: Disk = fullDisk) {
   const f = fixture();
   change(f);
-  return validate(entriesOf(f), f.site, { strict, today: TODAY, fileSize });
+  return validate(entriesOf(f), f.site, { strict, today: TODAY, ...disk });
 }
 
 describe('validate — structure', () => {
@@ -186,11 +189,15 @@ describe('validate — structure', () => {
     expect(problems.join('\n')).toMatch(/more than one tier/);
   });
 
-  it('rejects before/after shots of different sizes', () => {
-    const problems = problemsAfter((f) => {
-      f.project.beforeAfter.after = img('/media/despues.webp', 1280, 800);
-    });
-    expect(problems.join('\n')).toMatch(/same size/);
+  it('rejects media paths in the wrong place or format', () => {
+    const text = problemsAfter((f) => {
+      f.project.beforeAfter.before = img('/media/antes.webp');
+      f.intro.clip.mp4 = '/videos/intro.mov';
+      f.site.defaultShareImage = 'share.gif';
+    }).join('\n');
+    expect(text).toMatch(/image path "\/media\/antes\.webp" should look like "el-break\/antes\.webp"/);
+    expect(text).toMatch(/mp4 path "\/videos\/intro\.mov"/);
+    expect(text).toMatch(/image path "share\.gif"/);
   });
 
   it('keeps the local tab in sync with site.serviceArea, both ways', () => {
@@ -226,10 +233,8 @@ describe('validate — structure', () => {
 });
 
 describe('validate — launch checks (strict)', () => {
-  const everyFileExists = () => 1000;
-
   it('passes when nothing is a placeholder and every file exists', () => {
-    expect(problemsAfter(() => {}, true, everyFileExists)).toEqual([]);
+    expect(problemsAfter(() => {}, true)).toEqual([]);
   });
 
   it('is off unless strict', () => {
@@ -245,7 +250,6 @@ describe('validate — launch checks (strict)', () => {
         f.about.heading = { es: 'TODO', en: 'TODO' };
       },
       true,
-      everyFileExists,
     );
     const text = problems.join('\n');
     expect(text).toMatch(/site\.url/);
@@ -261,19 +265,32 @@ describe('validate — launch checks (strict)', () => {
         f.pricing.note = { es: 'Todo incluido', en: 'All included' };
       },
       true,
-      everyFileExists,
     );
     expect(problems).toEqual([]);
   });
 
-  it('reports missing media', () => {
-    const problems = problemsAfter(() => {}, true, (p) => (p === '/media/antes.webp' ? undefined : 1000));
-    expect(problems).toEqual(['missing file public/media/antes.webp']);
+  it('reports a missing image and a missing video', () => {
+    const problems = problemsAfter(() => {}, true, {
+      fileSize: (p) => (p === '/media/intro.mp4' ? undefined : 1000),
+      imageSize: (p) => (p === 'antes.webp' ? undefined : { width: 780, height: 1688 }),
+    });
+    expect(problems.sort()).toEqual(['missing file public/media/intro.mp4', 'missing image src/assets/media/antes.webp']);
   });
 
   it('reports a clip over 2 MB', () => {
-    const problems = problemsAfter(() => {}, true, (p) => (p === '/media/intro.mp4' ? MAX_CLIP_BYTES + 1 : 1000));
+    const problems = problemsAfter(() => {}, true, {
+      ...fullDisk,
+      fileSize: (p) => (p === '/media/intro.mp4' ? MAX_CLIP_BYTES + 1 : 1000),
+    });
     expect(problems.join('\n')).toMatch(/intro\.mp4 is 2\.0 MB/);
+  });
+
+  it('rejects before/after shots of different sizes', () => {
+    const problems = problemsAfter(() => {}, true, {
+      ...fullDisk,
+      imageSize: (p) => (p === 'despues.webp' ? { width: 1280, height: 800 } : { width: 780, height: 1688 }),
+    });
+    expect(problems.join('\n')).toMatch(/before \(780×1688\) and after \(1280×800\)/);
   });
 });
 

@@ -8,7 +8,9 @@ import type { ProjectCard } from '../types';
  *   2. Fill every TODO. `npm run build` type-checks first (a missing field
  *      fails), then refuses duplicate slugs, dead links, http:// URLs, and —
  *      for the real production build — any leftover TODO or missing image.
- *   3. Drop the images in public/media/<slug>/. Nothing else to register.
+ *   3. Drop the images in src/assets/media/<slug>/ (screenshots, owner photo)
+ *      and any video in public/media/<slug>/. Nothing else to register — the
+ *      build reads each image's size and makes the small versions itself.
  *
  * Files starting with _ are excluded from the feed, so this one never renders.
  */
@@ -40,34 +42,31 @@ const card: ProjectCard = {
     // Only include `owner` once you have the photo AND their permission.
     // owner: {
     //   name: 'TODO',
-    //   photo: { src: '/media/TODO-slug/dueno.webp', alt: { es: 'TODO', en: 'TODO' }, width: 600, height: 600 },
+    //   photo: { src: 'TODO-slug/dueno.webp', alt: { es: 'TODO', en: 'TODO' } },
     //   photoConsent: true,
     // },
   },
 
   /**
-   * Shoot both at the SAME viewport width. If the "before" is a phone
-   * screenshot and the "after" is a desktop one, the comparison is dishonest
-   * and a sharp owner will notice.
+   * Shoot both at the SAME viewport width and size (e.g. two 390-wide phone
+   * screenshots). If the "before" is a phone screenshot and the "after" is a
+   * desktop one, the comparison is dishonest and a sharp owner will notice.
+   * The production build refuses two files of different dimensions.
    */
   beforeAfter: {
     before: {
-      src: '/media/TODO-slug/antes.webp',
+      src: 'TODO-slug/antes.webp',
       alt: {
         es: 'TODO: describe qué se ve mal en la página vieja.',
         en: 'TODO: describe what looks wrong on the old page.',
       },
-      width: 780,
-      height: 1688,
     },
     after: {
-      src: '/media/TODO-slug/despues.webp',
+      src: 'TODO-slug/despues.webp',
       alt: {
         es: 'TODO: describe qué se ve en la página nueva.',
         en: 'TODO: describe what the new page shows.',
       },
-      width: 780,
-      height: 1688,
     },
     note: {
       es: 'TODO: una línea sobre cuál era el problema.',

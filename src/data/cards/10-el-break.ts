@@ -25,22 +25,18 @@ const card: ProjectCard = {
 
   beforeAfter: {
     before: {
-      src: '/media/el-break/antes.webp',
+      src: 'el-break/antes.webp',
       alt: {
         es: 'La página vieja de El Break: una foto borrosa del menú escrita a mano, difícil de leer en el teléfono.',
         en: 'El Break’s old page: a blurry photo of a handwritten menu, hard to read on a phone.',
       },
-      width: 780,
-      height: 1688,
     },
     after: {
-      src: '/media/el-break/despues.webp',
+      src: 'el-break/despues.webp',
       alt: {
         es: 'La página nueva de El Break: la carta con precios claros y el horario de hoy arriba.',
         en: 'El Break’s new page: the menu with clear prices and today’s hours at the top.',
       },
-      width: 780,
-      height: 1688,
     },
     note: {
       es: 'Antes el menú era una foto. Había que estirar la pantalla para leer los precios.',

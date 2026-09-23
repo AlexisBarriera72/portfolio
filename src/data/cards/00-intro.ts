@@ -24,14 +24,12 @@ const card: IntroCard = {
   clip: {
     webm: '/media/intro/saludo.webm',
     mp4: '/media/intro/saludo.mp4',
-    poster: '/media/intro/saludo-poster.jpg',
+    poster: 'intro/saludo-poster.jpg',
     posterAlt: {
       es: 'Alexis mirando a la cámara, listo para hablar.',
       en: 'Alexis looking at the camera, about to speak.',
     },
-    width: 1080,
-    height: 1920,
-    durationSec: 9,
+    sound: true,
     transcript: {
       es: [
         'Hola, soy Alexis. Hago páginas web para negocios pequeños en Puerto Rico.',

@@ -23,11 +23,29 @@ export interface ValidateOptions {
    * the photos and the real phone number exist.
    */
   strict?: boolean;
-  /** Size in bytes of a file under /public, or undefined if it does not exist. */
+  /** Size in bytes of a file under public/, or undefined if it does not exist. */
   fileSize?: (publicPath: string) => number | undefined;
+  /** Real size of an image under src/assets/media/, or undefined if it does not exist. */
+  imageSize?: (imagePath: string) => { width: number; height: number } | undefined;
   /** YYYY-MM-DD. Defaults to the current date. */
   today?: string;
 }
+
+/**
+ * One media reference. Images live in src/assets/media/ and go through the
+ * image pipeline; everything else is a file served from public/.
+ */
+export type MediaRef =
+  | { kind: 'image'; src: string }
+  | { kind: 'webm' | 'mp4' | 'vtt'; src: string };
+
+/** What each kind of path must look like. */
+const MEDIA_PATTERN: Record<MediaRef['kind'], { pattern: RegExp; example: string }> = {
+  image: { pattern: /^(?!\/)[\w./-]+\.(avif|jpe?g|png|webp)$/i, example: 'el-break/antes.webp' },
+  webm: { pattern: /^\/media\/[\w./-]+\.webm$/, example: '/media/intro/saludo.webm' },
+  mp4: { pattern: /^\/media\/[\w./-]+\.mp4$/, example: '/media/intro/saludo.mp4' },
+  vtt: { pattern: /^\/media\/[\w./-]+\.vtt$/, example: '/media/intro/saludo.es.vtt' },
+};
 
 /** Each clip file (WebM and MP4 separately) must stay under this. */
 export const MAX_CLIP_BYTES = 2 * 1024 * 1024;
@@ -61,6 +79,7 @@ export function validate(
   const cards = entries.map((e) => e.card);
 
   checkSite(site, problems);
+  for (const ref of siteMedia(site)) checkMediaPath(ref, 'site', problems);
 
   const slugs = new Set<string>();
   const orders = new Map<number, string>();
@@ -112,11 +131,7 @@ export function validate(
     for (const { where, url } of urlsOf(card)) {
       checkHttps(url, `${at} ${where}`, problems);
     }
-    for (const src of mediaOf(card)) {
-      if (!src.startsWith('/') || src.startsWith('//')) {
-        problems.push(`${at} media "${src}" must be a path under /public, starting with /`);
-      }
-    }
+    for (const ref of mediaOf(card)) checkMediaPath(ref, at, problems);
 
     checkCardType(card, site, today, problems);
   }
@@ -147,7 +162,7 @@ export function validate(
     }
   }
 
-  if (options.strict) checkLaunch(entries, site, options.fileSize, problems);
+  if (options.strict) checkLaunch(entries, site, options, problems);
 
   return problems;
 }
@@ -159,13 +174,6 @@ function checkCardType(card: Card, site: SiteConfig, today: string, problems: st
 
   switch (card.type) {
     case 'project': {
-      const { before, after } = card.beforeAfter;
-      if (before.width !== after.width || before.height !== after.height) {
-        problems.push(
-          `${at} before (${before.width}×${before.height}) and after (${after.width}×${after.height}) ` +
-            'must be shot at the same size, or the comparison is not honest',
-        );
-      }
       if (card.demo.mode === 'live') {
         const checked = card.demo.framingCheckedOn;
         if (!isIsoDate(checked)) {
@@ -247,36 +255,49 @@ function checkSite(site: SiteConfig, problems: string[]): void {
 function checkLaunch(
   entries: CardEntry[],
   site: SiteConfig,
-  fileSize: ValidateOptions['fileSize'],
+  { fileSize, imageSize }: ValidateOptions,
   problems: string[],
 ): void {
+  if (!fileSize || !imageSize) {
+    problems.push('launch checks need fileSize and imageSize to verify media');
+    return;
+  }
+
   walkStrings(site, 'site', (value, where) => {
     if (isPlaceholder(value)) problems.push(`placeholder at ${where}: "${value}"`);
   });
 
-  const media = new Set([site.person.portrait.src, site.defaultShareImage]);
+  const refs = new Map<string, MediaRef>(siteMedia(site).map((ref) => [ref.src, ref]));
 
   for (const { card } of entries) {
     walkStrings(card, card.slug, (value, where) => {
       if (isPlaceholder(value)) problems.push(`placeholder at ${where}: "${value}"`);
     });
-    for (const src of mediaOf(card)) media.add(src);
-    for (const clip of clipsOf(card)) {
-      for (const src of [clip.webm, clip.mp4]) {
-        const bytes = fileSize?.(src);
-        if (bytes !== undefined && bytes > MAX_CLIP_BYTES) {
-          problems.push(`${src} is ${(bytes / 1024 / 1024).toFixed(1)} MB — clips must stay under 2 MB`);
-        }
+    for (const ref of mediaOf(card)) refs.set(ref.src, ref);
+
+    if (card.type === 'project') {
+      const before = imageSize(card.beforeAfter.before.src);
+      const after = imageSize(card.beforeAfter.after.src);
+      if (before && after && (before.width !== after.width || before.height !== after.height)) {
+        problems.push(
+          `"${card.slug}" before (${before.width}×${before.height}) and after (${after.width}×${after.height}) ` +
+            'must be shot at the same size, or the comparison is not honest',
+        );
       }
     }
   }
 
-  if (!fileSize) {
-    problems.push('launch checks need fileSize to verify media');
-    return;
-  }
-  for (const src of media) {
-    if (fileSize(src) === undefined) problems.push(`missing file public${src}`);
+  for (const ref of refs.values()) {
+    if (ref.kind === 'image') {
+      if (!imageSize(ref.src)) problems.push(`missing image src/assets/media/${ref.src}`);
+      continue;
+    }
+    const bytes = fileSize(ref.src);
+    if (bytes === undefined) {
+      problems.push(`missing file public${ref.src}`);
+    } else if (ref.kind !== 'vtt' && bytes > MAX_CLIP_BYTES) {
+      problems.push(`${ref.src} is ${(bytes / 1024 / 1024).toFixed(1)} MB — clips must stay under 2 MB`);
+    }
   }
 }
 
@@ -344,8 +365,8 @@ function clipsOf(card: Card): Clip[] {
   }
 }
 
-/** Every /public path a card references: images, posters, videos, captions. */
-export function mediaOf(card: Card): string[] {
+/** Every media file a card references: images, posters, videos, captions. */
+export function mediaOf(card: Card): MediaRef[] {
   const images: Img[] = [];
   switch (card.type) {
     case 'project':
@@ -364,20 +385,37 @@ export function mediaOf(card: Card): string[] {
     default:
       assertNever(card);
   }
-  const clips = clipsOf(card).flatMap((clip) => [
-    clip.webm,
-    clip.mp4,
-    clip.poster,
-    ...(clip.captions ? Object.values(clip.captions) : []),
-  ]);
   return [
-    ...images.map((img) => img.src),
-    ...clips,
-    ...(card.share ? [card.share.image] : []),
+    ...images.map((img): MediaRef => ({ kind: 'image', src: img.src })),
+    ...clipsOf(card).flatMap(clipMedia),
+    ...(card.share ? [{ kind: 'image', src: card.share.image } as const] : []),
+  ];
+}
+
+function clipMedia(clip: Clip): MediaRef[] {
+  return [
+    { kind: 'webm', src: clip.webm },
+    { kind: 'mp4', src: clip.mp4 },
+    { kind: 'image', src: clip.poster },
+    ...(clip.captions ? Object.values(clip.captions).map((src): MediaRef => ({ kind: 'vtt', src })) : []),
+  ];
+}
+
+function siteMedia(site: SiteConfig): MediaRef[] {
+  return [
+    { kind: 'image', src: site.person.portrait.src },
+    { kind: 'image', src: site.defaultShareImage },
   ];
 }
 
 /* ------------------------------------------------------------------- helpers */
+
+function checkMediaPath(ref: MediaRef, where: string, problems: string[]): void {
+  const { pattern, example } = MEDIA_PATTERN[ref.kind];
+  if (!pattern.test(ref.src)) {
+    problems.push(`${where} ${ref.kind} path "${ref.src}" should look like "${example}"`);
+  }
+}
 
 function checkHttps(url: string, where: string, problems: string[]): void {
   let parsed: URL;

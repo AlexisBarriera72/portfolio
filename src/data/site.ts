@@ -17,13 +17,11 @@ export const site: SiteConfig = {
       en: 'I build websites for small businesses in Puerto Rico.',
     },
     portrait: {
-      src: '/media/alexis/retrato.webp',
+      src: 'alexis/retrato.webp',
       alt: {
         es: 'Alexis, sonriendo, sentado frente a una laptop en un café.',
         en: 'Alexis, smiling, sitting in front of a laptop at a café.',
       },
-      width: 800,
-      height: 1000,
     },
   },
 
@@ -55,5 +53,5 @@ export const site: SiteConfig = {
     email: 'elnenealexis72@gmail.com',
   },
 
-  defaultShareImage: '/media/share-default.jpg',
+  defaultShareImage: 'share-default.jpg',
 };

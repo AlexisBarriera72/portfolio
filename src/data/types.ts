@@ -4,7 +4,8 @@
  * Rules this file enforces at build time:
  *  - Nothing ships half-translated: every author-written string is an { es, en } pair.
  *  - A card cannot be rendered without the data its layout needs (discriminated union).
- *  - Images and video always carry intrinsic size, so the feed never shifts while loading.
+ *  - Images go through astro:assets, which reads their real size, so the feed
+ *    never shifts while loading and nobody types a width by hand.
  *  - UI chrome ("Antes", "Ver sitio", "Siguiente") is NOT here. It lives in src/i18n/.
  */
 
@@ -28,14 +29,24 @@ export type L10nText = L10n<string[]>;
 
 /* -------------------------------------------------------------------- media */
 
+/**
+ * An image file in src/assets/media/, written relative to that folder:
+ * "el-break/antes.webp" → src/assets/media/el-break/antes.webp. The build
+ * resizes and converts it (AVIF/WebP) and reads its real width and height.
+ */
+export type ImagePath = string;
+
+/**
+ * A file served as-is from public/, written as its URL: "/media/intro/saludo.mp4"
+ * → public/media/intro/saludo.mp4. Used for video and captions, which the
+ * image pipeline does not process.
+ */
+export type PublicPath = string;
+
 export interface Img {
-  /** Path under /public, e.g. "/media/el-break/after.webp". */
-  src: string;
+  src: ImagePath;
   /** Required. Describes what is IN the image, for screen readers and for SEO. */
   alt: L10n;
-  /** Intrinsic size. Required so width/height render on the tag and CLS stays 0. */
-  width: number;
-  height: number;
 }
 
 /**
@@ -44,19 +55,18 @@ export interface Img {
  * (see validate.ts), so there is no size to type in here and keep in sync.
  */
 export interface Clip {
-  webm: string;
-  mp4: string;
-  /** Shown before play and whenever the clip is not the active card. */
-  poster: string;
+  webm: PublicPath;
+  mp4: PublicPath;
+  /** Shown until the clip plays, and whenever it is not the active card. */
+  poster: ImagePath;
   posterAlt: L10n;
-  width: number;
-  height: number;
-  durationSec: number;
+  /** The clip has speech or sound worth hearing — shows an unmute button. */
+  sound?: boolean;
   /**
    * WebVTT caption file per locale. The clips autoplay muted, so a talking
    * clip without captions is a person moving their mouth in silence.
    */
-  captions?: L10n;
+  captions?: L10n<PublicPath>;
   /**
    * What is said or shown. Rendered as visually-hidden text next to the video
    * so the content exists for screen readers and for crawlers, which never
@@ -116,7 +126,7 @@ interface CardBase {
   /** The card's <h2>, and the <title> when someone deep-links to it. */
   heading: L10n;
   /** Per-card link preview (og:image / og:description on the card's page). Falls back to the site default. */
-  share?: { image: string; description: L10n };
+  share?: { image: ImagePath; description: L10n };
   /** Set false to keep a card in the repo but out of the build. */
   published?: boolean;
 }
@@ -160,7 +170,8 @@ export interface Client {
 
 /**
  * The most important element on the site. Both shots must be taken at the same
- * viewport width so the comparison is honest and the two images line up.
+ * viewport width so the comparison is honest and the two images line up — the
+ * production build checks that the two files have the same dimensions.
  */
 export interface BeforeAfter {
   before: Img;
@@ -338,6 +349,6 @@ export interface SiteConfig {
     };
     email: string;
   };
-  /** Fallback Open Graph image for cards that define no `share`. */
-  defaultShareImage: string;
+  /** Fallback link-preview image for cards that define no `share`. */
+  defaultShareImage: ImagePath;
 }

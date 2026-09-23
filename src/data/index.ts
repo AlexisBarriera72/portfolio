@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { localePath } from '../i18n';
+import { resolveImage } from './media';
 import { site } from './site';
 import type { Card, CardType, FeedTab, Locale } from './types';
 import { LOCALES } from './types';
@@ -50,10 +51,11 @@ const entries: CardEntry[] = Object.entries(modules)
 
 /**
  * All problems in the real content. `strict` adds the launch checks
- * (placeholders, missing media, clip sizes) — see validate.ts.
+ * (placeholders, missing media, clip sizes, before/after dimensions) — see
+ * validate.ts.
  */
 export function contentProblems(strict: boolean): string[] {
-  return validate(entries, site, { strict, fileSize: publicFileSize });
+  return validate(entries, site, { strict, fileSize: publicFileSize, imageSize: resolveImage });
 }
 
 /** Resolved from the project root: at build time this module runs from a bundled chunk, not from src/. */
