@@ -17,6 +17,7 @@ import {
   scrollToVeryEnd,
   settle,
   tagControls,
+  unreachable,
   visibleSlugs,
   withRealIntroMedia,
 } from './helpers';
@@ -225,6 +226,33 @@ test.describe('one screen per card', () => {
       }
       expect(tooTall).toEqual([]);
     });
+  }
+});
+
+test.describe('everything on a card can be read', () => {
+  // Where a card is taller than its panel, it scrolls inside itself — and
+  // every heading, paragraph and control must then be reachable, whole, and
+  // not cut off or covered (not just the buttons).
+  for (const path of ['/', '/en/']) {
+    for (const { name, viewport, text } of [
+      { name: 'a phone on its side, 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
+      { name: '390×844 with text at 150%', viewport: { width: 390, height: 844 }, text: '150%' },
+      { name: '360×640 with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+    ]) {
+      test(`${name}, on ${path}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        await enlargeText(page, text);
+        const problems: string[] = [];
+        for (const slug of PARA_TI) problems.push(...(await unreachable(page, slug)));
+        // And with the intro's transcript open.
+        await page.locator('#inicio details.transcript').evaluate((d) => {
+          (d as HTMLDetailsElement).open = true;
+        });
+        problems.push(...(await unreachable(page, 'inicio')).map((p) => `transcript open: ${p}`));
+        expect(problems).toEqual([]);
+      });
+    }
   }
 });
 
@@ -457,14 +485,27 @@ test.describe('video window: stale results', () => {
 });
 
 test.describe('intro clip', () => {
-  test('fills the whole intro card, with its controls at the top', async ({ page }) => {
-    await page.goto('/');
-    const card = await page.locator('#inicio .intro').boundingBox();
-    const clip = await page.locator('#inicio .intro-clip').boundingBox();
-    const controls = await page.locator('#inicio .clip-controls').boundingBox();
-    expect(clip!.height).toBeGreaterThan(card!.height - 2);
-    expect(controls!.y - card!.y).toBeLessThan(24);
-  });
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 360, height: 640 },
+  ]) {
+    test(`fills the whole intro card, with its controls at the top, at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      const slot = (await page.locator('#inicio').boundingBox())!;
+      const card = (await page.locator('#inicio .intro').boundingBox())!;
+      expect(Math.abs(card.y - slot.y), 'the intro starts at the top of its card').toBeLessThanOrEqual(1);
+      expect(card.height).toBeGreaterThan(slot.height - 2);
+      // The clip's own box steps aside; its poster and video are the layers that fill the card.
+      for (const layer of ['.clip-poster', '.clip-video']) {
+        const box = (await page.locator(`#inicio ${layer}`).boundingBox())!;
+        expect(box.height, layer).toBeGreaterThan(card.height - 2);
+        expect(box.width, layer).toBeGreaterThan(card.width - 2);
+      }
+      const controls = (await page.locator('#inicio .clip-controls').boundingBox())!;
+      expect(controls.y - card.y).toBeLessThan(24);
+    });
+  }
 });
 
 test.describe('captions and transcript', () => {

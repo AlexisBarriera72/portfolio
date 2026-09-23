@@ -175,6 +175,97 @@ export async function expectAligned(page: Page, slug: string) {
   if (m.nextTop !== null) expect(m.nextTop, `${slug}: next card already showing`).toBeGreaterThanOrEqual(-1);
 }
 
+/**
+ * What on card `id` a reader can't get to: each shown heading, paragraph, list
+ * item, quote, caption, summary, link and button (dialogs aside) that can't be
+ * scrolled wholly into view, or is cut off by an ancestor that clips, or is
+ * covered by something else. The feed is put on the card, then the card's own
+ * box is scrolled to each one — its top, and its bottom if it is taller than
+ * the view — exactly as a reader scrolling inside the card would.
+ */
+export const unreachable = (page: Page, id: string) =>
+  page.evaluate((id) => {
+    const card = document.getElementById(id)!;
+    const scroller = window.__feedScroller();
+    scroller.scrollTo({ top: scroller.scrollTop + card.getBoundingClientRect().top - window.__feedView().top, behavior: 'instant' });
+    const body = card.querySelector<HTMLElement>('.card-body')!;
+    const view = window.__feedView();
+    const problems: string[] = [];
+
+    /** The part of the screen `el` can show in: the feed's view, cut down by the card and every clipping ancestor. */
+    const region = (el: HTMLElement) => {
+      let top = view.top;
+      let bottom = view.bottom;
+      for (let a = el.parentElement; a && a !== card.parentElement; a = a.parentElement) {
+        const style = getComputedStyle(a);
+        // No box of its own (display: contents), so nothing to clip with.
+        if (style.display === 'contents' || (style.overflowY === 'visible' && style.overflowX === 'visible')) continue;
+        const r = a.getBoundingClientRect();
+        top = Math.max(top, r.top);
+        bottom = Math.min(bottom, r.bottom);
+      }
+      return { top, bottom };
+    };
+    const scrollBodyBy = (dy: number) => body.scrollTo({ top: body.scrollTop + dy, behavior: 'instant' });
+    /** Whether `e` puts anything on screen itself: a background, an image, or its own text. */
+    const paints = (e: Element) => {
+      if (e.matches('img, svg, video, iframe, canvas, input')) return true;
+      const style = getComputedStyle(e);
+      if (style.visibility === 'hidden' || style.opacity === '0') return false;
+      if (style.backgroundImage !== 'none' || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(style.backgroundColor)) return true;
+      return [...e.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim() !== '');
+    };
+    /** Nothing that paints is stacked above `el`, across the middle of the part of it that is showing. */
+    const uncovered = (el: HTMLElement, top: number, bottom: number) => {
+      const r = el.getBoundingClientRect();
+      const y = (Math.max(r.top, top) + Math.min(r.bottom, bottom)) / 2;
+      for (const f of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+        const x = r.left + r.width * f;
+        if (x < 0 || x > innerWidth) continue;
+        for (const hit of document.elementsFromPoint(x, y)) {
+          if (hit === el || el.contains(hit) || hit.contains(el)) break; // reached it (or what holds it)
+          if (paints(hit)) return false;
+        }
+      }
+      return true;
+    };
+
+    // Hit-testing skips anything that takes no pointer events (a message laid
+    // over the video, the text on a picture): count everything, for now.
+    const sheet = document.styleSheets[0]!;
+    const rule = sheet.insertRule('.feed * { pointer-events: auto !important; }', sheet.cssRules.length);
+
+    const SELECTOR = 'h2, h3, h4, p, li, blockquote, figcaption, summary, a[href], button';
+    for (const el of body.querySelectorAll<HTMLElement>(SELECTOR)) {
+      if (el.closest('dialog, .sr-only') || !el.checkVisibility()) continue;
+      const size = el.getBoundingClientRect();
+      if (size.width < 1 || size.height < 1) continue;
+      const name = `${id}: <${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)}"`;
+
+      // Its top to the top of the space it can show in.
+      scrollBodyBy(el.getBoundingClientRect().top - region(el).top);
+      let r = el.getBoundingClientRect();
+      let room = region(el);
+      if (r.top < room.top - 1 || r.top > room.bottom - 1) {
+        problems.push(`${name}: its top can't be brought into view (${Math.round(r.top - room.top)}px from it)`);
+        continue;
+      }
+      if (r.height <= room.bottom - room.top + 1) {
+        if (r.bottom > room.bottom + 1) problems.push(`${name}: cut off at the bottom by ${Math.round(r.bottom - room.bottom)}px`);
+        else if (!uncovered(el, room.top, room.bottom)) problems.push(`${name}: covered by something else`);
+        continue;
+      }
+      // Taller than the view: its bottom must be reachable too.
+      scrollBodyBy(el.getBoundingClientRect().bottom - region(el).bottom);
+      r = el.getBoundingClientRect();
+      room = region(el);
+      if (r.bottom > room.bottom + 1) problems.push(`${name}: its bottom can't be brought into view`);
+    }
+    sheet.deleteRule(rule);
+    body.scrollTo({ top: 0, behavior: 'instant' });
+    return problems;
+  }, id);
+
 /** Scroll the feed so the top of card `id` sits at `at` (0–1) of the way down it. */
 export const placeCardTop = (page: Page, id: string, at: number) =>
   page.evaluate(
