@@ -73,20 +73,34 @@ use only, and a site that advertises your services is commercial — it would
 need the paid plan. Cloudflare's free plan allows it, serves from a location
 in San Juan, and reads the security headers this build generates.
 
+Deploys run from GitHub Actions (`.github/workflows/deploy.yml`), not from
+Cloudflare's own Git builds:
+
+- **Every pull request** gets a preview: a draft build uploaded as a separate
+  version at `https://pr-<number>-portfolio.<subdomain>.workers.dev` (the link
+  is in the job summary), and the browser tests run against it. The real site
+  is not touched.
+- **Every push to `main`** runs the strict `npm run build` and then
+  `wrangler deploy`. That build refuses to run while anything is fake, so
+  until the launch checklist is done this job fails on purpose and nothing
+  fake goes live.
+
 One-time setup:
 
-1. In the Cloudflare dashboard: **Workers & Pages → Create → Import a
-   repository**, and pick this GitHub repository.
-2. Build command: `npm run build` — deploy command: `npx wrangler deploy`
-   (the settings live in `wrangler.jsonc`).
-   Until the launch checklist is done, use `npm run build:draft` instead so
-   you can see a preview; switch to `npm run build` for the real launch.
-3. **Settings → Domains & Routes → Add → Custom domain** with your domain
-   (it has to use Cloudflare for its DNS). Put the same domain in
-   `src/data/site.ts`.
+1. Cloudflare → **My Profile → API Tokens → Create Token**, template **Edit
+   Cloudflare Workers**, for this account. In GitHub: **Settings → Secrets and
+   variables → Actions**, add it as `CLOUDFLARE_API_TOKEN`, and your account ID
+   (in the dashboard URL, or Workers & Pages → Account details) as
+   `CLOUDFLARE_ACCOUNT_ID`.
+2. On the `portfolio` Worker in Cloudflare: **Settings → Build → Disconnect**,
+   so Cloudflare doesn't build it a second time.
+3. At launch: **Settings → Domains & Routes → Add → Custom domain** with your
+   domain (it has to use Cloudflare for its DNS), and put the same domain in
+   `src/data/site.ts`. The Worker has no public workers.dev address
+   (`workers_dev: false` in `wrangler.jsonc`), so the domain is the only way in.
 
-After that, every push to `main` deploys. To test a deployment with the
-browser tests: `E2E_BASE_URL=https://your-preview-url npm run test:e2e`.
+To run the browser tests against any deployment yourself:
+`E2E_BASE_URL=https://your-preview-url npm run test:e2e`.
 
 ## How it is put together
 
