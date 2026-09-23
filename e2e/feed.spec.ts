@@ -10,7 +10,8 @@ import {
   enlargeText,
   expectAligned,
   installFeedHelpers,
-  panelHeight,
+  nextFrame,
+  overflowing,
   placeCardTop,
   readThrough,
   scrollToVeryEnd,
@@ -197,28 +198,33 @@ test.describe('active card', () => {
 });
 
 test.describe('one screen per card', () => {
-  // A card must fit its panel at normal text size — no scrolling inside it.
-  for (const viewport of [
-    { width: 360, height: 640 },
-    { width: 390, height: 844 },
-  ]) {
-    for (const path of ['/', '/en/']) {
-      test(`every card fits at ${viewport.width}×${viewport.height} on ${path}`, async ({ page }) => {
-        await page.setViewportSize(viewport);
-        await page.goto(path);
-        const panel = await panelHeight(page);
-        const tooTall = await page.locator('.feed > .card').evaluateAll(
-          (cards, panel) =>
-            cards
-              .filter((c) => getComputedStyle(c).display !== 'none')
-              .map((c) => ({ id: c.id, need: c.querySelector<HTMLElement>('.card-body')!.scrollHeight }))
-              .filter(({ need }) => need > panel + 1)
-              .map(({ id, need }) => `${id} needs ${need}px of ${Math.round(panel)}px`),
-          panel,
-        );
-        expect(tooTall).toEqual([]);
-      });
-    }
+  /**
+   * At normal text size a card fits its panel — nothing to scroll inside it,
+   * so a swipe always moves the feed — on every phone from 640px tall (most
+   * phones, once the browser's own bars are counted). Swept every 20px up to
+   * 1000, with both sides of the layout's 800px switch and the old 700px one.
+   * Below 640 the pricing card scrolls inside itself: a known limit.
+   */
+  const HEIGHTS = [
+    ...new Set([...Array.from({ length: 19 }, (_, i) => 640 + i * 20), 699, 700, 701, 740, 799, 800, 801]),
+  ].sort((a, b) => a - b);
+
+  for (const path of ['/', '/en/']) {
+    test(`every card fits, 640 to 1000px tall, on ${path}`, async ({ page, isMobile }) => {
+      test.setTimeout(120_000);
+      // Phones from 360 to 430 wide; on a desktop, the column in a wide window.
+      const widths = isMobile ? [360, 375, 390, 412, 430] : [1280];
+      await page.goto(path);
+      const tooTall: string[] = [];
+      for (const width of widths) {
+        for (const height of HEIGHTS) {
+          await page.setViewportSize({ width, height });
+          await nextFrame(page);
+          for (const card of await overflowing(page)) tooTall.push(`${width}×${height}: ${card}`);
+        }
+      }
+      expect(tooTall).toEqual([]);
+    });
   }
 });
 

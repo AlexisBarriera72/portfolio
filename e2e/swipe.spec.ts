@@ -1,6 +1,7 @@
 import type { CDPSession, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
+  PARA_TI,
   enlargeText,
   expectAligned,
   expectResting,
@@ -183,6 +184,24 @@ test.describe('touch swipes (Chromium, over CDP)', () => {
     await swipe(page, cdp, 0.7, 'slow');
     await expectResting(page, 'after a swipe once the viewport is back');
   });
+
+  // The in-between heights where cards used to scroll inside themselves, so a
+  // flick moved the card's own content instead of the feed.
+  for (const height of [701, 740, 801]) {
+    test(`at 390×${height}, a flick on every card moves on to the next one`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height });
+      await page.goto('/');
+      for (const [i, slug] of PARA_TI.slice(0, -1).entries()) {
+        await expectAligned(page, slug);
+        await swipe(page, cdp, 0.2, 'fast');
+        expect(await expectResting(page, `after a flick on ${slug}`), `a flick on ${slug}`).toBe(PARA_TI[i + 1]);
+        const scrolledInside = await page.evaluate(() =>
+          [...document.querySelectorAll<HTMLElement>('.card-body')].filter((b) => b.scrollTop > 0).map((b) => b.parentElement!.id),
+        );
+        expect(scrolledInside, `cards scrolled inside themselves after a flick on ${slug}`).toEqual([]);
+      }
+    });
+  }
 
   test('enlarged text: swipes reach the end of a tall card, then leave it, in both directions', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 640 });

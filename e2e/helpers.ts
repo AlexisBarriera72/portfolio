@@ -96,12 +96,22 @@ export const disableSnapping = (page: Page) =>
     document.documentElement.style.scrollSnapType = 'none';
   });
 
-/** The height a card gets: the feed's box. */
-export const panelHeight = (page: Page) =>
-  page.evaluate(() => {
-    const view = window.__feedView();
-    return view.bottom - view.top;
-  });
+/** Resolves after the next frame has been laid out (e.g. after a resize). */
+export const nextFrame = (page: Page) =>
+  page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+
+/** The shown cards whose content is taller than the card, as "id +Npx". */
+export const overflowing = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.feed > .card')]
+      .filter((card) => getComputedStyle(card).display !== 'none')
+      .map((card) => {
+        const body = card.querySelector<HTMLElement>('.card-body')!;
+        return { id: card.id, over: body.scrollHeight - body.clientHeight };
+      })
+      .filter(({ over }) => over > 1)
+      .map(({ id, over }) => `${id} +${over}px`),
+  );
 
 /**
  * Where the feed rests: the shown cards whose top is within 2px of the feed's

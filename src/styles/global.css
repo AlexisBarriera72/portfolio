@@ -566,15 +566,22 @@ html:not([data-tab]) .tabs {
 }
 
 /* --------------------------------------------------------- before / after */
+/*
+ * The picture takes what the card has left: up to 22rem, less on a shorter
+ * panel (never under 8rem), so the words and buttons around it always fit.
+ * The figure holds only the picture, so nothing in it can be squeezed out.
+ */
 .compare {
   display: flex;
+  flex: 0 1 22rem;
   flex-direction: column;
-  gap: 0.5rem;
+  min-height: 8rem;
 }
 .compare-frame {
   --pos: 50%;
   position: relative;
-  height: clamp(11rem, 29svh, 22rem);
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: 1rem;
@@ -647,10 +654,7 @@ html:not([data-tab]) .tabs {
 .compare-single {
   cursor: default;
 }
-.compare-caption {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.compare-note {
   font-size: 0.925rem;
   color: var(--color-muted);
 }
@@ -859,10 +863,14 @@ html:not([data-tab]) .tabs {
 }
 
 /* -------------------------------------------------------------------- about */
+/* Like the before/after picture: the space the words leave, up to 26rem. */
+.card-about picture {
+  display: contents;
+}
 .portrait {
+  flex: 0 1 26rem;
   width: 100%;
-  max-height: 38svh;
-  aspect-ratio: 4 / 5;
+  min-height: 7rem;
   border-radius: 1.25rem;
   object-fit: cover;
 }
@@ -1112,12 +1120,15 @@ html:not([data-tab]) .tabs {
 }
 
 /* ------------------------------------------------------------ short screens
- * A 360×640 phone has about 584px below the tabs. Every card must fit that
- * at normal text size: smaller pictures and headings, tighter spacing and a
- * smaller WhatsApp button — body text stays at 15px or more. (Enlarged text
- * can still need more; the card then scrolls inside itself.)
+ * Most phones, once the browser's own bars are counted: every card must fit
+ * from 640px tall at normal text size (e2e "one screen per card" sweeps the
+ * sizes). Up to 800px the WhatsApp button lives in the top bar, so no card
+ * keeps a strip clear for it, and headings and spacing are tighter — body
+ * text stays at 15px or more. Pictures shrink with the panel on their own
+ * (above). Enlarged text, or a phone on its side, can still need more; the
+ * card then scrolls inside itself.
  */
-@media (max-height: 700px) {
+@media (max-height: 800px) {
   /* The WhatsApp button moves from the bottom corner into the top bar, so no
      card has to keep a strip clear for it. Still one tap away, everywhere. */
   :root {
@@ -1144,13 +1155,6 @@ html:not([data-tab]) .tabs {
   }
   .card-heading {
     font-size: 1.4rem;
-  }
-  .compare-frame {
-    height: clamp(8.5rem, 24svh, 22rem);
-  }
-  .portrait {
-    max-height: 26svh;
-    aspect-ratio: auto;
   }
   .prose-card {
     gap: 0.6rem;

@@ -87,6 +87,11 @@ feed, open the preview on an **iPhone (Safari)** and an **Android phone
 - [ ] With the phone's text size set large: a card whose text doesn't fit
       scrolls inside itself, you can reach its last button, and keep swiping
       to the next card (and back).
+- [ ] At normal text size, no card scrolls inside itself: a flick on any card
+      moves to the next one. (The tests check every size from 640px tall and
+      360–430px wide. Below 640 — an iPhone SE with Safari's bars showing is
+      about 375×548 — the pricing card still scrolls inside itself: a known
+      limit.)
 - [ ] Open "Qué incluye" on a plan, close it, and keep swiping.
 
 ## Deploying to Cloudflare
