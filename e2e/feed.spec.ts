@@ -239,6 +239,63 @@ test.describe('keyboard reading', () => {
   });
 });
 
+/** Scroll so the top of card `id` sits at `at` (0–1) of the way down the visible area. */
+const placeCardTop = (page: Page, id: string, at: number) =>
+  page.evaluate(
+    ([id, at]) => {
+      const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
+      const target = top + (innerHeight - top) * at;
+      window.scrollBy({ top: document.getElementById(id)!.getBoundingClientRect().top - target, behavior: 'instant' });
+    },
+    [id, at] as const,
+  );
+
+test.describe('active card', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+  });
+
+  /**
+   * Partial scrolls with a card boundary just above and just below the middle
+   * of the visible area, coming from both directions. Snapping is turned off
+   * so each position holds exactly; the active card must be the one under
+   * the middle. `from` is the card above the boundary, `to` the one below.
+   */
+  async function sweep(page: Page, from: string, to: string) {
+    const down = [0.7, 0.55, 0.45, 0.3];
+    for (const at of [...down, ...[...down].reverse()]) {
+      await placeCardTop(page, to, at);
+      await settle(page);
+      const expected = at < 0.5 ? to : from;
+      await expect(page, `boundary at ${at * 100}% of the visible area`).toHaveURL(new RegExp(`/${expected}/$`));
+    }
+  }
+
+  for (const { name, viewport, text } of [
+    { name: 'portrait 390×844', viewport: { width: 390, height: 844 }, text: '100%' },
+    { name: 'landscape 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
+    { name: 'landscape 844×390 with text at 150%', viewport: { width: 844, height: 390 }, text: '150%' },
+  ]) {
+    test(`is the card under the middle of the visible area — ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      await enlargeText(page, text);
+      await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+      await sweep(page, 'el-break', 'consejeria-escolar');
+      await sweep(page, 'precios', 'que-incluye');
+    });
+  }
+
+  test('follows the screen when it rotates', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+    await sweep(page, 'el-break', 'consejeria-escolar');
+    await page.setViewportSize({ width: 844, height: 390 });
+    await sweep(page, 'precios', 'que-incluye');
+  });
+});
+
 test.describe('tabs', () => {
   test('filter the feed, go into the URL, and Back undoes them', async ({ page }) => {
     await page.goto('/');

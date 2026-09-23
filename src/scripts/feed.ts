@@ -1,9 +1,10 @@
 /**
  * The feed's behaviour. The markup and CSS already work without this; the
  * script adds:
- *  - the active card: the one crossing the middle of the screen. Its page path
- *    goes into the address bar (replaceState — scrolling never adds history
- *    entries), its title into the tab, and the language link follows it;
+ *  - the active card: the one under the middle of the screen below the bar.
+ *    Its page path goes into the address bar (replaceState — scrolling never
+ *    adds history entries), its title into the tab, and the language link
+ *    follows it;
  *  - video: only the active card and its neighbours fetch their clip, and only
  *    the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
@@ -151,17 +152,60 @@ function init(feed: HTMLElement): void {
     }
   };
 
-  // A 1%-tall band across the middle of the screen: whichever card crosses it
-  // is active. Works for cards taller than the screen too.
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) activate(entry.target as HTMLLIElement);
-      }
-    },
-    { rootMargin: '-49% 0px -50% 0px' },
-  );
-  cards.forEach((card) => observer.observe(card));
+  /** The reading line: halfway down the part of the screen below the bar. */
+  const readingLine = () => {
+    const { top, bottom } = visibleArea();
+    return top + (bottom - top) / 2;
+  };
+
+  /**
+   * The active card is the one under the reading line — a single answer,
+   * whatever order the observer reports its entries in. Should the line fall
+   * on a gap, the nearest card wins.
+   */
+  const pickActive = (): HTMLLIElement | undefined => {
+    const line = readingLine();
+    let nearest: HTMLLIElement | undefined;
+    let distance = Infinity;
+    for (const card of visibleCards()) {
+      const rect = card.getBoundingClientRect();
+      if (rect.top <= line && rect.bottom > line) return card;
+      const d = Math.min(Math.abs(rect.top - line), Math.abs(rect.bottom - line));
+      if (d < distance) [nearest, distance] = [card, d];
+    }
+    return nearest;
+  };
+
+  const check = () => {
+    const card = pickActive();
+    if (card) activate(card);
+  };
+
+  // The observer only says when to check. Its root is shrunk, in pixels
+  // measured from the real bar and screen, to a 1px band on the reading line
+  // (a percentage margin would measure from the top of the screen, bar
+  // included, and sit off-centre — badly so in landscape). Rebuilt when the
+  // screen changes size: rotation, the address bar, the on-screen keyboard.
+  let observer: IntersectionObserver | undefined;
+  const observe = () => {
+    observer?.disconnect();
+    const line = Math.floor(readingLine());
+    const below = Math.max(0, window.innerHeight - line - 1);
+    observer = new IntersectionObserver(check, { rootMargin: `${-line}px 0px ${-below}px 0px` });
+    for (const card of cards) observer.observe(card);
+  };
+  observe();
+
+  let resizing: number | undefined;
+  const onResize = () => {
+    window.clearTimeout(resizing);
+    resizing = window.setTimeout(() => {
+      observe();
+      check();
+    }, 100);
+  };
+  window.addEventListener('resize', onResize);
+  window.visualViewport?.addEventListener('resize', onResize);
 
   /* ---------------------------------------------------------------- tabs */
 
