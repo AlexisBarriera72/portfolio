@@ -1100,8 +1100,8 @@ html:not([data-tab]) .tabs {
 .demo-device {
   display: flex;
   flex: 1;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-height: 3rem;
   padding: 0.4rem;
   border: 1.5px solid var(--color-line);
@@ -1113,11 +1113,6 @@ html:not([data-tab]) .tabs {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent-strong);
-}
-.demo-device-size {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-muted);
 }
 .demo-stage {
   position: relative;

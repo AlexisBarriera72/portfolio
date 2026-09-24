@@ -779,6 +779,12 @@ test.describe('screenshots demo', () => {
     await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
     const stage = dialog.locator('[data-demo-shots]');
+    // The device buttons just name the device: no pixel widths for this audience.
+    expect((await dialog.locator('.demo-device').allTextContents()).map((t) => t.trim())).toEqual([
+      'Teléfono',
+      'Tableta',
+      'Computadora',
+    ]);
     for (const [device, alt] of [
       ['Teléfono', /En un teléfono/],
       ['Tableta', /En una tableta/],
