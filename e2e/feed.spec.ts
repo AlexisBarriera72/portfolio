@@ -20,6 +20,8 @@ import {
   unreachable,
   visibleSlugs,
   withRealIntroMedia,
+  withoutPendingClips,
+  asIfIntroVideoExisted,
 } from './helpers';
 
 /**
@@ -274,6 +276,8 @@ test.describe('everything on a card can be read', () => {
       { name: '360×640 with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
     ]) {
       test(`${name}, on ${path}`, async ({ page }) => {
+        // The intro at its fullest: the player, its "not available" message and the transcript.
+        await asIfIntroVideoExisted(page);
         await page.setViewportSize(viewport);
         await page.goto(path);
         await enlargeText(page, text);
@@ -446,6 +450,7 @@ test.describe('tabs', () => {
 
 test.describe('video', () => {
   test('only the active card and its neighbours fetch their clip', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.goto('/');
     const intro = page.locator('#inicio video source').first();
     await expect(intro).toHaveAttribute('src', '/media/intro/saludo.webm');
@@ -456,6 +461,7 @@ test.describe('video', () => {
   });
 
   test('has a pause/play button with a name', async ({ page }) => {
+    await asIfIntroVideoExisted(page);
     await page.goto('/');
     await expect(page.locator('#inicio').getByRole('button', { name: /video/ })).toBeVisible();
     await expect(page.locator('#inicio').getByRole('button', { name: 'Activar el sonido' })).toBeVisible();
@@ -481,7 +487,7 @@ async function withManyClips(page: Page) {
   });
   await page.route(/\/$/, async (route) => {
     const response = await route.fetch();
-    const html = await response.text();
+    const html = withoutPendingClips(await response.text());
     const start = html.indexOf('<li class="card is-start" id="inicio"');
     const end = html.indexOf('<li class="card', start + 10);
     const intro = html.slice(start, end).replace('card is-start', 'card');
@@ -592,12 +598,38 @@ test.describe('video window: stale results', () => {
   });
 });
 
+test.describe('a draft without the intro video', () => {
+  test('the first screen shows the picture and words: no error, no video buttons, no transcript, no video fetched', async ({
+    page,
+    request,
+  }) => {
+    const gaps = (await (await request.get('/draft-missing.json')).json()) as { missing: string[] };
+    test.skip(!gaps.missing.includes('/media/intro/saludo.webm'), 'this build has the intro video');
+    const videoRequests: string[] = [];
+    page.on('request', (r) => {
+      if (/\/media\/intro\/.*\.(webm|mp4)$/.test(r.url())) videoRequests.push(r.url());
+    });
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    await expect(intro.locator('[data-clip]')).toHaveAttribute('data-clip-pending', '');
+    await expect(intro.locator('h2')).toBeVisible();
+    await expect(intro.getByRole('link', { name: 'Ver precios' })).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(intro.locator('.clip-controls')).toBeHidden();
+    await expect(intro.locator('.clip-error')).toBeHidden();
+    await expect(intro.locator('[data-clip-error-text]')).toHaveText('');
+    await expect(intro.locator('.transcript')).toBeHidden();
+    expect(videoRequests).toEqual([]);
+  });
+});
+
 test.describe('intro clip', () => {
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 360, height: 640 },
   ]) {
     test(`fills the whole intro card, with its controls at the top, at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await asIfIntroVideoExisted(page);
       await page.setViewportSize(viewport);
       await page.goto('/');
       const slot = (await page.locator('#inicio').boundingBox())!;
@@ -661,7 +693,9 @@ test.describe('playback', () => {
   });
 
   test('a missing video says so, disables its controls and offers a retry', async ({ page }) => {
-    // The draft really has no intro video: both files 404 (declared in /draft-missing.json).
+    // Served as if the video existed, while the draft really has none: both
+    // files 404 (declared in /draft-missing.json).
+    await asIfIntroVideoExisted(page);
     await page.goto('/');
     const intro = page.locator('#inicio');
     await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');

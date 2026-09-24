@@ -563,6 +563,11 @@ html:not([data-tab]) .tabs {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* A draft's clip with no video yet (Clip.astro): just its picture. */
+.clip[data-clip-pending] :is(.clip-controls, .clip-error),
+.intro:has(.clip[data-clip-pending]) .transcript {
+  display: none;
+}
 
 .clip-cc {
   font-size: 0.75rem;
