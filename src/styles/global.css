@@ -205,9 +205,11 @@ html.feed-page,
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
-  /* Fade the right edge so a cut-off tab reads as "there is more", not as broken. */
-  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
-  padding-right: 1.25rem;
+  /* Fade the right edge so a cut-off tab reads as "there is more", not as
+     broken. Narrow, and the tabs compact, so Contacto (third) is in full view
+     on a 360px phone (e2e "tabs"). */
+  mask-image: linear-gradient(to right, #000 calc(100% - 1rem), transparent);
+  padding-right: 1rem;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -220,9 +222,9 @@ html:not([data-tab]) .tabs {
 .tab {
   flex: none;
   min-height: 2.5rem;
-  padding: 0.4rem 0.7rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
   color: var(--color-muted);
@@ -237,7 +239,7 @@ html:not([data-tab]) .tabs {
   flex: none;
   display: grid;
   place-items: center;
-  min-width: 2.75rem;
+  min-width: 2.5rem;
   min-height: 2.5rem;
   border: 1.5px solid var(--color-line);
   border-radius: 999px;

@@ -89,7 +89,8 @@ export type Clip = SpokenClip | SilentClip;
 
 /* --------------------------------------------------------------------- tabs */
 
-export const FEED_TABS = ['para-ti', 'local', 'precios', 'sobre-mi', 'contacto'] as const;
+/** In this order in the tab row: Precios and Contacto come first so they're in view on any phone. */
+export const FEED_TABS = ['para-ti', 'precios', 'contacto', 'local', 'sobre-mi'] as const;
 export type FeedTab = (typeof FEED_TABS)[number];
 
 /** Opening tab when no ?tab= is present in the URL. */

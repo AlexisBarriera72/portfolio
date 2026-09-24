@@ -394,9 +394,35 @@ test.describe('tabs', () => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Para ti' }).focus();
     await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('tab', { name: 'Local' })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Precios' })).toBeFocused();
     await expect(page).toHaveURL(/\/$/);
   });
+
+  // Contacto is third, and wholly in view — clear of the fade at the row's
+  // right edge (1rem) — on phones from 360px wide, in both languages.
+  for (const viewport of [
+    { width: 360, height: 640 },
+    { width: 390, height: 844 },
+  ]) {
+    for (const path of ['/', '/en/']) {
+      test(`the contact tab is in full view at ${viewport.width}×${viewport.height} on ${path}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        const labels = await page.getByRole('tab').allTextContents();
+        expect(labels.map((l) => l.trim()).slice(0, 3)).toEqual(
+          path === '/' ? ['Para ti', 'Precios', 'Contacto'] : ['For you', 'Pricing', 'Contact'],
+        );
+        const room = await page.evaluate(() => {
+          const row = document.querySelector('.tabs')!.getBoundingClientRect();
+          const tab = document.querySelector('#tab-contacto')!.getBoundingClientRect();
+          const fade = parseFloat(getComputedStyle(document.documentElement).fontSize); // 1rem
+          return { left: tab.left - row.left, right: row.right - fade - tab.right };
+        });
+        expect(room.left, 'starts inside the row').toBeGreaterThanOrEqual(0);
+        expect(room.right, 'ends before the fade').toBeGreaterThanOrEqual(0);
+      });
+    }
+  }
 });
 
 test.describe('video', () => {
