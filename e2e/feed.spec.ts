@@ -696,7 +696,7 @@ test.describe('project card', () => {
     await range.focus();
     for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
     await expect(range).toHaveValue('55');
-    const pos = await page.locator('#el-break .compare-frame').evaluate((el) => el.style.getPropertyValue('--pos'));
+    const pos = await page.locator('#el-break .card-body > .compare .compare-frame').evaluate((el) => el.style.getPropertyValue('--pos'));
     expect(pos).toBe('55%');
     // The feed did not move: arrow keys belong to the slider here.
     await expect(page).toHaveURL(/\/el-break\/$/);
@@ -729,13 +729,61 @@ test.describe('project card', () => {
   });
 });
 
+test.describe('before/after, enlarged', () => {
+  test('opens both shots whole in a dialog, with the same slider; closing returns to the button', async ({ page }) => {
+    await page.goto('/el-break/');
+    const open = page.getByRole('button', { name: 'Ver en grande: El Break Food Truck' });
+    await expect(open).toHaveAttribute('aria-haspopup', 'dialog');
+    await open.click();
+    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck: antes y después' });
+    await expect(dialog).toBeVisible();
+
+    // Both shots load and show whole: contained, not cropped, inside the frame.
+    const frame = dialog.locator('.compare-frame');
+    for (const img of await frame.locator('img').all()) {
+      await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+      expect(await img.evaluate((i) => getComputedStyle(i).objectFit)).toBe('contain');
+    }
+    const [box, card] = [await frame.boundingBox(), await page.locator('#el-break .card-body > .compare .compare-frame').boundingBox()];
+    expect(box!.height, 'larger than in the card').toBeGreaterThan(card!.height);
+
+    // The same slider, by keyboard.
+    const range = dialog.getByRole('slider', { name: 'El sitio de El Break Food Truck, antes y después' });
+    await range.focus();
+    for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+    await expect(range).toHaveValue('55');
+    expect(await frame.evaluate((el) => (el as HTMLElement).style.getPropertyValue('--pos'))).toBe('55%');
+
+    const axe = await new AxeBuilder({ page }).include('#zoom-el-break').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(open).toBeFocused();
+    await expect(page).toHaveURL(/\/el-break\/$/);
+  });
+
+  test('a project with no old site opens its new site large', async ({ page }) => {
+    await page.goto('/en/consejeria-escolar/');
+    await page.getByRole('button', { name: 'See it larger: Consejería Escolar' }).click();
+    const dialog = page.getByRole('dialog', { name: /: the new site$/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('slider')).toHaveCount(0);
+    await expect.poll(() => dialog.locator('img').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+    // Full screen on a phone, so no backdrop to tap: its close button.
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'See it larger: Consejería Escolar' })).toBeFocused();
+  });
+});
+
 test.describe('projects without an old site', () => {
   test('show the new site alone, with no slider', async ({ page }) => {
     await page.goto('/melanie-creations/');
     const card = page.locator('#melanie-creations');
     await expect(card.getByRole('img', { name: /Melanie Creations en un teléfono/ })).toBeVisible();
     await expect(card.getByRole('slider')).toHaveCount(0);
-    await expect(card.getByText('Antes sus trabajos estaban solo en Instagram y Facebook.')).toBeVisible();
+    await expect(card.locator('.compare-note')).toHaveText('Antes sus trabajos estaban solo en Instagram y Facebook.');
     await expect(card.getByText('League City, Texas', { exact: false })).toBeVisible();
   });
 

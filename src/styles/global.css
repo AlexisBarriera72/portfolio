@@ -623,6 +623,7 @@ html:not([data-tab]) .tabs {
  * The figure holds only the picture, so nothing in it can be squeezed out.
  */
 .compare {
+  position: relative;
   display: flex;
   flex: 0 1 22rem;
   flex-direction: column;
@@ -704,6 +705,46 @@ html:not([data-tab]) .tabs {
 }
 .compare-single {
   cursor: default;
+}
+/* Opens the comparison large. Beside the box in the page (so pressing it
+   never moves the slider), laid over its bottom-right corner, clear of the
+   hint in the middle. */
+.compare-enlarge {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.75);
+  color: #fff;
+  cursor: pointer;
+}
+/* The large view: the same comparison, both shots whole, as big as the
+   screen allows. */
+.compare-zoom-stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  background: var(--color-canvas);
+}
+.compare-zoom .compare {
+  flex: 1 1 auto;
+  align-items: center;
+  min-height: 0;
+}
+.compare-zoom .compare-frame {
+  max-width: 100%;
+}
+.compare-zoom .compare-frame :is(img, .img-missing) {
+  object-fit: contain;
+  object-position: center;
+}
+.compare-zoom-note {
+  padding-bottom: 1rem;
 }
 .compare-note {
   font-size: 0.925rem;
@@ -1312,5 +1353,9 @@ html:not([data-tab]) .tabs {
     height: min(52rem, 92dvh);
     margin: auto;
     border-radius: 1.25rem;
+  }
+  /* Phone-shaped shots: a phone-shaped dialog. */
+  .demo.compare-zoom {
+    width: min(34rem, 94vw);
   }
 }

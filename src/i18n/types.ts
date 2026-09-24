@@ -56,6 +56,10 @@ export interface UIStrings {
     after: string;
     /** Accessible name for the before/after pair. */
     comparisonLabel: (client: string) => string;
+    /** The button on the picture that opens it large, in a dialog. */
+    enlargeLabel: (client: string) => string;
+    /** That dialog's title: with a "before", the pair; without, the new site. */
+    enlargedTitle: (client: string, pair: boolean) => string;
     outcomesHeading: string;
     demoHeading: string;
     /** Accessible name for the phone/tablet/desktop button group. */

@@ -8,7 +8,10 @@
  *  - drag anywhere on the box (src/scripts/compare.ts). `touch-action: pan-y`
  *    leaves vertical swipes to the feed, so the box never traps scrolling;
  *  - a real range input for keyboard and screen readers — visually hidden, its
- *    focus ring drawn on the box.
+ *    focus ring drawn on the box;
+ *  - a button in the corner that opens the same comparison large, in a
+ *    dialog, with both shots shown whole (src/scripts/dialogs.ts). It sits
+ *    beside the box, not in it, so pressing it never moves the slider.
  * Without JavaScript it is a still 50/50 split with both halves visible.
  *
  * With no "before" (the business had no site), the same box shows the new site
@@ -20,8 +23,8 @@
  */
 import type { Locale, ProjectCard } from '../data/types';
 import { t } from '../i18n';
+import CompareFrame from './CompareFrame.astro';
 import Icon from './Icon.astro';
-import Img from './Img.astro';
 
 interface Props {
   card: ProjectCard;
@@ -31,52 +34,39 @@ interface Props {
 
 const { card, locale, eager } = Astro.props;
 const ui = t(locale).project;
-const { before, after, note } = card.beforeAfter;
-const noteId = `note-${card.slug}`;
+const { before, note } = card.beforeAfter;
+const noteId = note ? `note-${card.slug}` : undefined;
+const zoomId = `zoom-${card.slug}`;
 ---
 
-{
-  before ? (
-    <figure class="compare" data-compare>
-      <div class="compare-frame">
-        <Img image={after} locale={locale} eager={eager} class="compare-img" />
-        <div class="compare-before">
-          <Img image={before} locale={locale} eager={eager} class="compare-img" />
-        </div>
-        <span class="compare-tag compare-tag-before" aria-hidden="true">
-          {ui.before}
-        </span>
-        <span class="compare-tag compare-tag-after" aria-hidden="true">
-          {ui.after}
-        </span>
-        <span class="compare-hint" aria-hidden="true">
-          <Icon name="compare" size={16} />
-          {ui.compareHint}
-        </span>
-        <span class="compare-handle" aria-hidden="true">
-          <span class="compare-knob">
-            <Icon name="compare" size={18} />
-          </span>
-        </span>
-        <input
-          class="compare-range sr-only"
-          type="range"
-          min="0"
-          max="100"
-          value="50"
-          aria-label={ui.comparisonLabel(card.client.name)}
-          aria-describedby={note ? noteId : undefined}
-        />
-      </div>
+<figure class="compare" data-compare={before ? '' : undefined}>
+  <CompareFrame card={card} locale={locale} eager={eager} noteId={noteId} />
+  <button
+    type="button"
+    class="compare-enlarge"
+    data-dialog-open={zoomId}
+    aria-haspopup="dialog"
+    aria-controls={zoomId}
+    aria-label={ui.enlargeLabel(card.client.name)}
+  >
+    <Icon name="expand" size={18} />
+  </button>
+</figure>
+<dialog id={zoomId} class="demo compare-zoom" aria-labelledby={`${zoomId}-title`}>
+  <div class="demo-bar">
+    <h3 id={`${zoomId}-title`} class="demo-title">{ui.enlargedTitle(card.client.name, Boolean(before))}</h3>
+    <form method="dialog">
+      <button type="submit" class="demo-close" aria-label={ui.closeDemo}><Icon name="close" /></button>
+    </form>
+  </div>
+  <div class="compare-zoom-stage">
+    <figure class="compare" data-compare={before ? '' : undefined}>
+      {/* Lazy, inside a closed dialog: the large shots load only when opened. */}
+      <CompareFrame card={card} locale={locale} eager={false} noteId={noteId} />
     </figure>
-  ) : (
-    <figure class="compare">
-      <div class="compare-frame compare-single">
-        <Img image={after} locale={locale} eager={eager} class="compare-img" />
-      </div>
-    </figure>
-  )
-}
+  </div>
+  {note && <p class="demo-lead compare-zoom-note">{note[locale]}</p>}
+</dialog>
 {
   note && (
     <p id={noteId} class="compare-note">
