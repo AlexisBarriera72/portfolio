@@ -20,7 +20,8 @@ export type UiIcon =
   | 'chat'
   | 'mail'
   | 'device'
-  | 'compare';
+  | 'compare'
+  | 'expand';
 
 interface Props {
   name: UiIcon;
@@ -55,6 +56,7 @@ const PATHS: Record<UiIcon, string> = {
   mail: 'M4 6h16v12H4zM4 7l8 6 8-6',
   device: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2',
   compare: 'M9 7l-4 5 4 5M15 7l4 5-4 5',
+  expand: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
 };
 
 const filled = FILLED.has(name);

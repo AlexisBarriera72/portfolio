@@ -10,6 +10,10 @@ import { type APIRequestContext, test as base, expect } from '@playwright/test';
  * allowed. A production build publishes no such file, so nothing is allowed.
  * A test that expects a failure (e.g. visiting a 404 page) says so with
  * guard.allow(path).
+ *
+ * When a test fails or times out, it also attaches the requests that were
+ * still loading ("requests still loading"), printed with the failure: a page
+ * whose `load` never came says which request held it.
  */
 
 type Guard = { allow: (pathOrUrl: string) => void };
@@ -25,7 +29,7 @@ async function loadDeclaredGaps(request: APIRequestContext, baseURL: string): Pr
 
 export const test = base.extend<{ guard: Guard }>({
   guard: [
-    async ({ page, request, baseURL }, use) => {
+    async ({ page, request, baseURL }, use, testInfo) => {
       const allowed = await (declared ??= loadDeclaredGaps(request, baseURL!));
       const extra = new Set<string>();
       const problems: string[] = [];
@@ -34,10 +38,15 @@ export const test = base.extend<{ guard: Guard }>({
         return [raw, url.pathname, url.origin].some((key) => allowed.has(key) || extra.has(key));
       };
 
+      const loading = new Map<object, string>();
+      page.on('request', (req) => loading.set(req, `${req.method()} ${req.url()} (${req.resourceType()})`));
+      page.on('requestfinished', (req) => loading.delete(req));
+
       page.on('response', (res) => {
         if (res.status() >= 400 && !isAllowed(res.url())) problems.push(`${res.status()} ${res.url()}`);
       });
       page.on('requestfailed', (req) => {
+        loading.delete(req);
         const reason = req.failure()?.errorText ?? '';
         // Cancelled by the page itself (a paused or unloaded video, an iframe set
         // to about:blank): Chromium says net::ERR_ABORTED, WebKit this.
@@ -53,6 +62,9 @@ export const test = base.extend<{ guard: Guard }>({
       page.on('pageerror', (err) => problems.push(`pageerror: ${err.message}`));
 
       await use({ allow: (target) => extra.add(target) });
+      if (testInfo.status !== testInfo.expectedStatus && loading.size > 0) {
+        await testInfo.attach('requests still loading', { body: [...loading.values()].join('\n'), contentType: 'text/plain' });
+      }
       expect(problems, 'unexpected failed requests or errors').toEqual([]);
     },
     { auto: true },

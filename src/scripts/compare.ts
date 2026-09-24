@@ -11,6 +11,17 @@ for (const figure of document.querySelectorAll<HTMLElement>('[data-compare]')) {
   const range = figure.querySelector<HTMLInputElement>('.compare-range');
   if (!frame || !range) continue;
 
+  // In the large view (a dialog), the box takes the shots' own proportions,
+  // so they show whole with no bands beside them and the labels sit on them.
+  if (figure.closest('dialog')) {
+    const shot = frame.querySelector('img');
+    const fit = () => {
+      if (shot?.naturalWidth) frame.style.aspectRatio = `${shot.naturalWidth} / ${shot.naturalHeight}`;
+    };
+    shot?.addEventListener('load', fit);
+    fit();
+  }
+
   const set = (percent: number) => {
     const value = Math.min(100, Math.max(0, percent));
     frame.style.setProperty('--pos', `${value}%`);

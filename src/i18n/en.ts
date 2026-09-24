@@ -36,6 +36,8 @@ export const en: UIStrings = {
     before: 'Before',
     after: 'After',
     comparisonLabel: (client) => `${client}’s website, before and after`,
+    enlargeLabel: (client) => `See it larger: ${client}`,
+    enlargedTitle: (client, pair) => (pair ? `${client}: before and after` : `${client}: the new site`),
     outcomesHeading: 'What changed',
     demoHeading: 'Try it at different sizes',
     deviceGroupLabel: 'Screen size',
@@ -73,6 +75,11 @@ export const en: UIStrings = {
     mostChosen: 'Most chosen',
     afterFirstYear: 'After the first year',
     seeIncludes: 'What’s included',
+    close: 'Close',
+  },
+
+  inclusions: {
+    hint: 'Tap one to see what it means.',
     close: 'Close',
   },
 

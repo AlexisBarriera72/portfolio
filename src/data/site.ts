@@ -19,8 +19,8 @@ export const site: SiteConfig = {
     portrait: {
       src: 'alexis/retrato.webp',
       alt: {
-        es: 'Alexis, sonriendo, sentado frente a una laptop en un café.',
-        en: 'Alexis, smiling, sitting in front of a laptop at a café.',
+        es: 'Alexis, con un gorro de peluche blanco con cuernitos y un suéter negro, en una tienda.',
+        en: 'Alexis in a fluffy white hat with little horns and a black sweater, in a store.',
       },
     },
   },
@@ -45,10 +45,11 @@ export const site: SiteConfig = {
   geo: { lat: 18.0111, lng: -66.6141 }, // Ponce
 
   contact: {
-    whatsapp: '17875551234', // TODO(alexis): E.164 digits only — no +, no spaces
+    whatsapp: '17873444919', // E.164 digits only — no +, no spaces
+    // The same number takes calls.
     phone: {
-      e164: '+17875551234', // TODO(alexis): + and digits — goes in the tel: link
-      display: '(787) 555-1234', // TODO(alexis): how people read it
+      e164: '+17873444919', // + and digits — goes in the tel: link
+      display: '(787) 344-4919', // how people read it
     },
     email: 'elnenealexis72@gmail.com',
   },

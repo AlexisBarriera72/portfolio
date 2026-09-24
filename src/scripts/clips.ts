@@ -57,9 +57,12 @@ function applyCaptions(clip: HTMLElement): void {
 }
 
 /** Attach the real sources and start fetching. Safe to call repeatedly. */
+/** A draft's clip whose video isn't added yet (Clip.astro): there is nothing to load or play. */
+const pending = (clip: HTMLElement) => clip.hasAttribute('data-clip-pending');
+
 export function loadClip(clip: HTMLElement): void {
   const video = videoOf(clip);
-  if (!video || clip.dataset.loaded) return;
+  if (!video || clip.dataset.loaded || pending(clip)) return;
   const { generation, stop } = nextGeneration(clip);
   const current = () => clip.dataset.loaded === 'true' && generationOf(clip) === generation;
 
@@ -106,7 +109,7 @@ export function autoplayClip(clip: HTMLElement): void {
 
 export function playClip(clip: HTMLElement): void {
   const video = videoOf(clip);
-  if (!video || clip.dataset.failed) return;
+  if (!video || clip.dataset.failed || pending(clip)) return;
   loadClip(clip);
   const generation = generationOf(clip);
   video.play().catch((error: unknown) => {

@@ -13,7 +13,13 @@
  * Captions show by default (the clip starts muted); the CC button hides them.
  * The transcript is not here: ClipTranscript renders it as visible text where
  * the card has room for it.
+ *
+ * A clip whose video isn't added yet — only possible in a draft build, since
+ * the real build refuses — is marked `data-clip-pending`: the script never
+ * loads it, and CSS shows just its picture, with no buttons, no error and no
+ * transcript for a video nobody can play.
  */
+import { clipReady } from '../data';
 import type { Clip, Locale } from '../data/types';
 import { t } from '../i18n';
 import Icon from './Icon.astro';
@@ -29,9 +35,10 @@ interface Props {
 
 const { clip, locale, eager = false, class: className } = Astro.props;
 const ui = t(locale).video;
+const pending = !clipReady(clip);
 ---
 
-<div class:list={['clip', className]} data-clip>
+<div class:list={['clip', className]} data-clip data-clip-pending={pending ? '' : undefined}>
   <Img image={{ src: clip.poster, alt: clip.posterAlt }} locale={locale} eager={eager} class="clip-poster" />
   <video class="clip-video" muted loop playsinline preload="none" disableRemotePlayback aria-hidden="true">
     <source data-src={clip.webm} type="video/webm" />

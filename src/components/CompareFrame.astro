@@ -1,0 +1,63 @@
+---
+/**
+ * The before/after box itself (see Compare.astro): the "after" shot
+ * underneath, the "before" shot on top clipped at --pos, the handle and the
+ * range input — or, with no "before", the new site alone. Rendered twice per
+ * project: in the card, and large in the dialog that opens from it.
+ */
+import type { Locale, ProjectCard } from '../data/types';
+import { t } from '../i18n';
+import Icon from './Icon.astro';
+import Img from './Img.astro';
+
+interface Props {
+  card: ProjectCard;
+  locale: Locale;
+  eager: boolean;
+  /** The id of the note that describes the pair, if there is one. */
+  noteId?: string;
+}
+
+const { card, locale, eager, noteId } = Astro.props;
+const ui = t(locale).project;
+const { before, after } = card.beforeAfter;
+---
+
+{
+  before ? (
+    <div class="compare-frame">
+      <Img image={after} locale={locale} eager={eager} class="compare-img" />
+      <div class="compare-before">
+        <Img image={before} locale={locale} eager={eager} class="compare-img" />
+      </div>
+      <span class="compare-tag compare-tag-before" aria-hidden="true">
+        {ui.before}
+      </span>
+      <span class="compare-tag compare-tag-after" aria-hidden="true">
+        {ui.after}
+      </span>
+      <span class="compare-hint" aria-hidden="true">
+        <Icon name="compare" size={16} />
+        {ui.compareHint}
+      </span>
+      <span class="compare-handle" aria-hidden="true">
+        <span class="compare-knob">
+          <Icon name="compare" size={18} />
+        </span>
+      </span>
+      <input
+        class="compare-range sr-only"
+        type="range"
+        min="0"
+        max="100"
+        value="50"
+        aria-label={ui.comparisonLabel(card.client.name)}
+        aria-describedby={noteId}
+      />
+    </div>
+  ) : (
+    <div class="compare-frame compare-single">
+      <Img image={after} locale={locale} eager={eager} class="compare-img" />
+    </div>
+  )
+}

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { localePath } from '../i18n';
 import { resolveImage } from './media';
 import { site } from './site';
-import type { Card, CardType, FeedTab, Locale } from './types';
+import type { Card, CardType, Clip, FeedTab, Locale } from './types';
 import { LOCALES } from './types';
 import { type CardEntry, isPlaceholder, mediaOf, validate } from './validate';
 
@@ -141,6 +141,15 @@ export function draftGaps(): { missing: string[]; placeholderDemos: string[] } {
     if (card.type === 'project' && isPlaceholder(card.liveUrl)) demos.add(new URL(card.liveUrl).origin);
   }
   return { missing: [...files].sort(), placeholderDemos: [...demos].sort() };
+}
+
+/**
+ * Whether a clip's video exists yet (either file). Only a draft build can
+ * ship without it — the real build refuses — and there the clip shows just
+ * its picture instead of a player that can only fail.
+ */
+export function clipReady(clip: Clip): boolean {
+  return publicFileSize(clip.webm) !== undefined || publicFileSize(clip.mp4) !== undefined;
 }
 
 /** Municipios that actually have a project, for the "Local" tab copy. */

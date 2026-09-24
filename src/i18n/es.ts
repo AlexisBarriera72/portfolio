@@ -34,6 +34,8 @@ export const es: UIStrings = {
     before: 'Antes',
     after: 'Después',
     comparisonLabel: (client) => `El sitio de ${client}, antes y después`,
+    enlargeLabel: (client) => `Ver en grande: ${client}`,
+    enlargedTitle: (client, pair) => (pair ? `${client}: antes y después` : `${client}: el sitio nuevo`),
     outcomesHeading: 'Qué cambió',
     demoHeading: 'Pruébalo en distintos tamaños',
     deviceGroupLabel: 'Tamaño de pantalla',
@@ -71,6 +73,11 @@ export const es: UIStrings = {
     mostChosen: 'El más pedido',
     afterFirstYear: 'Después del primer año',
     seeIncludes: 'Qué incluye',
+    close: 'Cerrar',
+  },
+
+  inclusions: {
+    hint: 'Toca uno para ver qué significa.',
     close: 'Cerrar',
   },
 

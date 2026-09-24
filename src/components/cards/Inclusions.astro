@@ -1,5 +1,12 @@
 ---
+/**
+ * What the price includes, on one screen: each item is a short row — a button
+ * (icon and title) that opens its explanation in a panel, a native <dialog>
+ * (src/scripts/dialogs.ts), like the pricing plans. The card never grows past
+ * the screen, and enlarged text scrolls inside the panel instead of the feed.
+ */
 import type { InclusionsCard, Locale } from '../../data/types';
+import { t } from '../../i18n';
 import Icon from '../Icon.astro';
 
 interface Props {
@@ -8,22 +15,46 @@ interface Props {
 }
 
 const { card, locale } = Astro.props;
+const ui = t(locale).inclusions;
 ---
 
-<h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+<header class="flex flex-col gap-1">
+  <h2 id={`h-${card.slug}`} class="card-heading">{card.heading[locale]}</h2>
+  <p class="fine-print">{ui.hint}</p>
+</header>
 
 <ul class="inclusions">
   {
-    card.items.map((item) => (
-      <li class="inclusion">
-        <span class="inclusion-icon">
-          <Icon name={item.icon} size={22} />
-        </span>
-        <div>
-          <h3 class="inclusion-title">{item.title[locale]}</h3>
-          <p class="inclusion-body">{item.body[locale]}</p>
-        </div>
-      </li>
-    ))
+    card.items.map((item, i) => {
+      const id = `${card.slug}-${i + 1}`;
+      return (
+        <li>
+          <button type="button" class="inclusion" data-dialog-open={id} aria-haspopup="dialog" aria-controls={id}>
+            <span class="inclusion-icon">
+              <Icon name={item.icon} size={22} />
+            </span>
+            <span class="inclusion-title">{item.title[locale]}</span>
+            <span class="inclusion-more" aria-hidden="true">
+              ›
+            </span>
+          </button>
+          <dialog id={id} class="panel" aria-labelledby={`${id}-title`}>
+            <div class="panel-bar">
+              <h3 id={`${id}-title`} class="panel-title">
+                {item.title[locale]}
+              </h3>
+              <form method="dialog">
+                <button type="submit" class="demo-close" aria-label={ui.close}>
+                  <Icon name="close" />
+                </button>
+              </form>
+            </div>
+            <div class="panel-body">
+              <p>{item.body[locale]}</p>
+            </div>
+          </dialog>
+        </li>
+      );
+    })
   }
 </ul>

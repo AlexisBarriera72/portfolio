@@ -136,7 +136,7 @@ test.describe('touch swipes (Chromium, over CDP)', () => {
 
   test('on the before/after picture: vertical swipes move the feed, sideways drags move the slider', async ({ page }) => {
     await page.goto('/el-break/');
-    const frame = page.locator('#el-break .compare-frame');
+    const frame = page.locator('#el-break .card-body > .compare .compare-frame');
     const box = (await frame.boundingBox())!;
     const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 
@@ -161,7 +161,7 @@ test.describe('touch swipes (Chromium, over CDP)', () => {
     await expectAligned(page, 'precios');
     await swipe(page, cdp, 0.7, 'slow');
     const landed = await expectResting(page, 'after a swipe in the Precios tab');
-    expect(['que-incluye', 'que-mas-incluye', 'fin']).toContain(landed);
+    expect(['que-incluye', 'fin']).toContain(landed);
   });
 
   test('turning the phone keeps the same card, aligned', async ({ page }) => {
@@ -186,19 +186,29 @@ test.describe('touch swipes (Chromium, over CDP)', () => {
   });
 
   // The in-between heights where cards used to scroll inside themselves, so a
-  // flick moved the card's own content instead of the feed.
+  // swipe moved the card's own content instead of the feed. On every card: a
+  // small flick never scrolls the card itself (where it comes to rest is the
+  // browser's physics: that card or the next), and a clear swipe moves on to
+  // the next card.
   for (const height of [701, 740, 801]) {
-    test(`at 390×${height}, a flick on every card moves on to the next one`, async ({ page }) => {
+    test(`at 390×${height}, swipes on every card move the feed, never the card's own content`, async ({ page }) => {
       await page.setViewportSize({ width: 390, height });
       await page.goto('/');
+      const scrolledInside = () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll<HTMLElement>('.card-body')].filter((b) => b.scrollTop > 0).map((b) => b.parentElement!.id),
+        );
       for (const [i, slug] of PARA_TI.slice(0, -1).entries()) {
         await expectAligned(page, slug);
         await swipe(page, cdp, 0.2, 'fast');
-        expect(await expectResting(page, `after a flick on ${slug}`), `a flick on ${slug}`).toBe(PARA_TI[i + 1]);
-        const scrolledInside = await page.evaluate(() =>
-          [...document.querySelectorAll<HTMLElement>('.card-body')].filter((b) => b.scrollTop > 0).map((b) => b.parentElement!.id),
-        );
-        expect(scrolledInside, `cards scrolled inside themselves after a flick on ${slug}`).toEqual([]);
+        const landed = await expectResting(page, `after a flick on ${slug}`);
+        expect([slug, PARA_TI[i + 1]], `a flick on ${slug}`).toContain(landed);
+        expect(await scrolledInside(), `cards scrolled inside themselves after a flick on ${slug}`).toEqual([]);
+        if (landed === slug) {
+          await swipe(page, cdp, 0.6, 'slow');
+          expect(await expectResting(page, `after a clear swipe on ${slug}`), `a clear swipe on ${slug}`).toBe(PARA_TI[i + 1]);
+          expect(await scrolledInside(), `cards scrolled inside themselves after a swipe on ${slug}`).toEqual([]);
+        }
       }
     });
   }

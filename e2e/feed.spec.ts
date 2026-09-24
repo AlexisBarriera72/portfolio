@@ -20,6 +20,8 @@ import {
   unreachable,
   visibleSlugs,
   withRealIntroMedia,
+  withoutPendingClips,
+  asIfIntroVideoExisted,
 } from './helpers';
 
 /**
@@ -65,7 +67,7 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.keyboard.press('ArrowDown');
     await expect(page).toHaveURL(/\/el-break\/$/);
-    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 10: El Break Food Truck');
+    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 9: El Break Food Truck');
     await page.keyboard.press('End');
     await expect(page).toHaveURL(/\/fin\/$/);
     await page.keyboard.press('Home');
@@ -274,6 +276,8 @@ test.describe('everything on a card can be read', () => {
       { name: '360×640 with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
     ]) {
       test(`${name}, on ${path}`, async ({ page }) => {
+        // The intro at its fullest: the player, its "not available" message and the transcript.
+        await asIfIntroVideoExisted(page);
         await page.setViewportSize(viewport);
         await page.goto(path);
         await enlargeText(page, text);
@@ -333,13 +337,61 @@ test.describe('pricing', () => {
   });
 });
 
+test.describe('progress', () => {
+  test('the line under the bar shows how far along the open tab the card on screen is', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    const filled = () =>
+      page.locator('[data-feed-progress]').evaluate((bar) => {
+        const whole = bar.getBoundingClientRect().width;
+        return bar.firstElementChild!.getBoundingClientRect().width / whole;
+      });
+    await expect.poll(filled).toBeCloseTo(1 / PARA_TI.length, 2);
+    await page.keyboard.press('End');
+    await expectAligned(page, 'fin');
+    await expect.poll(filled).toBeCloseTo(1, 2);
+    await page.getByRole('tab', { name: 'Precios' }).click();
+    await expect.poll(filled).toBeCloseTo(1 / 3, 2);
+    await expect(page.locator('[data-feed-progress]')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+test.describe('what you get', () => {
+  test('one card lists all six; each opens its explanation, and closing returns to it', async ({ page }) => {
+    await page.goto('/que-incluye/');
+    const items = page.locator('#que-incluye button.inclusion');
+    await expect(items).toHaveCount(6);
+    await expect(page.locator('#h-que-incluye')).toHaveText('Qué incluye');
+
+    for (const item of await items.all()) {
+      const title = (await item.locator('.inclusion-title').textContent())!.trim();
+      await expect(item).toHaveAttribute('aria-haspopup', 'dialog');
+      await item.click();
+      const panel = page.getByRole('dialog', { name: title });
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('.panel-body p')).not.toBeEmpty();
+      await page.keyboard.press('Escape');
+      await expect(panel).toBeHidden();
+      await expect(item).toBeFocused();
+    }
+
+    // The backdrop closes it too, and the panel passes axe.
+    await items.first().click();
+    const axe = await new AxeBuilder({ page }).include('#que-incluye-1').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await page.mouse.click(5, 5);
+    await expect(page.locator('#que-incluye-1')).toBeHidden();
+    await expect(page).toHaveURL(/\/que-incluye\/$/);
+  });
+});
+
 test.describe('tabs', () => {
   test('filter the feed, go into the URL, and Back undoes them', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Precios' }).click();
     await expect(page).toHaveURL(/\/precios\/\?tab=precios$/);
     await expect(page.getByRole('tab', { name: 'Precios' })).toHaveAttribute('aria-selected', 'true');
-    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'que-mas-incluye', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'fin']);
     await expect(page.locator('[data-lang-link]')).toHaveAttribute('href', '/en/precios/?tab=precios');
 
     await page.goBack();
@@ -365,13 +417,40 @@ test.describe('tabs', () => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Para ti' }).focus();
     await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('tab', { name: 'Local' })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'Precios' })).toBeFocused();
     await expect(page).toHaveURL(/\/$/);
   });
+
+  // Contacto is third, and wholly in view — clear of the fade at the row's
+  // right edge (1rem) — on phones from 360px wide, in both languages.
+  for (const viewport of [
+    { width: 360, height: 640 },
+    { width: 390, height: 844 },
+  ]) {
+    for (const path of ['/', '/en/']) {
+      test(`the contact tab is in full view at ${viewport.width}×${viewport.height} on ${path}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        const labels = await page.getByRole('tab').allTextContents();
+        expect(labels.map((l) => l.trim()).slice(0, 3)).toEqual(
+          path === '/' ? ['Para ti', 'Precios', 'Contacto'] : ['For you', 'Pricing', 'Contact'],
+        );
+        const room = await page.evaluate(() => {
+          const row = document.querySelector('.tabs')!.getBoundingClientRect();
+          const tab = document.querySelector('#tab-contacto')!.getBoundingClientRect();
+          const fade = parseFloat(getComputedStyle(document.documentElement).fontSize); // 1rem
+          return { left: tab.left - row.left, right: row.right - fade - tab.right };
+        });
+        expect(room.left, 'starts inside the row').toBeGreaterThanOrEqual(0);
+        expect(room.right, 'ends before the fade').toBeGreaterThanOrEqual(0);
+      });
+    }
+  }
 });
 
 test.describe('video', () => {
   test('only the active card and its neighbours fetch their clip', async ({ page }) => {
+    await withRealIntroMedia(page);
     await page.goto('/');
     const intro = page.locator('#inicio video source').first();
     await expect(intro).toHaveAttribute('src', '/media/intro/saludo.webm');
@@ -382,6 +461,7 @@ test.describe('video', () => {
   });
 
   test('has a pause/play button with a name', async ({ page }) => {
+    await asIfIntroVideoExisted(page);
     await page.goto('/');
     await expect(page.locator('#inicio').getByRole('button', { name: /video/ })).toBeVisible();
     await expect(page.locator('#inicio').getByRole('button', { name: 'Activar el sonido' })).toBeVisible();
@@ -407,7 +487,7 @@ async function withManyClips(page: Page) {
   });
   await page.route(/\/$/, async (route) => {
     const response = await route.fetch();
-    const html = await response.text();
+    const html = withoutPendingClips(await response.text());
     const start = html.indexOf('<li class="card is-start" id="inicio"');
     const end = html.indexOf('<li class="card', start + 10);
     const intro = html.slice(start, end).replace('card is-start', 'card');
@@ -518,12 +598,38 @@ test.describe('video window: stale results', () => {
   });
 });
 
+test.describe('a draft without the intro video', () => {
+  test('the first screen shows the picture and words: no error, no video buttons, no transcript, no video fetched', async ({
+    page,
+    request,
+  }) => {
+    const gaps = (await (await request.get('/draft-missing.json')).json()) as { missing: string[] };
+    test.skip(!gaps.missing.includes('/media/intro/saludo.webm'), 'this build has the intro video');
+    const videoRequests: string[] = [];
+    page.on('request', (r) => {
+      if (/\/media\/intro\/.*\.(webm|mp4)$/.test(r.url())) videoRequests.push(r.url());
+    });
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    await expect(intro.locator('[data-clip]')).toHaveAttribute('data-clip-pending', '');
+    await expect(intro.locator('h2')).toBeVisible();
+    await expect(intro.getByRole('link', { name: 'Ver precios' })).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(intro.locator('.clip-controls')).toBeHidden();
+    await expect(intro.locator('.clip-error')).toBeHidden();
+    await expect(intro.locator('[data-clip-error-text]')).toHaveText('');
+    await expect(intro.locator('.transcript')).toBeHidden();
+    expect(videoRequests).toEqual([]);
+  });
+});
+
 test.describe('intro clip', () => {
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 360, height: 640 },
   ]) {
     test(`fills the whole intro card, with its controls at the top, at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await asIfIntroVideoExisted(page);
       await page.setViewportSize(viewport);
       await page.goto('/');
       const slot = (await page.locator('#inicio').boundingBox())!;
@@ -587,7 +693,9 @@ test.describe('playback', () => {
   });
 
   test('a missing video says so, disables its controls and offers a retry', async ({ page }) => {
-    // The draft really has no intro video: both files 404 (declared in /draft-missing.json).
+    // Served as if the video existed, while the draft really has none: both
+    // files 404 (declared in /draft-missing.json).
+    await asIfIntroVideoExisted(page);
     await page.goto('/');
     const intro = page.locator('#inicio');
     await expect(intro.getByRole('status')).toHaveText('El video no está disponible ahora.');
@@ -622,7 +730,7 @@ test.describe('project card', () => {
     await range.focus();
     for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
     await expect(range).toHaveValue('55');
-    const pos = await page.locator('#el-break .compare-frame').evaluate((el) => el.style.getPropertyValue('--pos'));
+    const pos = await page.locator('#el-break .card-body > .compare .compare-frame').evaluate((el) => el.style.getPropertyValue('--pos'));
     expect(pos).toBe('55%');
     // The feed did not move: arrow keys belong to the slider here.
     await expect(page).toHaveURL(/\/el-break\/$/);
@@ -655,13 +763,61 @@ test.describe('project card', () => {
   });
 });
 
+test.describe('before/after, enlarged', () => {
+  test('opens both shots whole in a dialog, with the same slider; closing returns to the button', async ({ page }) => {
+    await page.goto('/el-break/');
+    const open = page.getByRole('button', { name: 'Ver en grande: El Break Food Truck' });
+    await expect(open).toHaveAttribute('aria-haspopup', 'dialog');
+    await open.click();
+    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck: antes y después' });
+    await expect(dialog).toBeVisible();
+
+    // Both shots load and show whole: contained, not cropped, inside the frame.
+    const frame = dialog.locator('.compare-frame');
+    for (const img of await frame.locator('img').all()) {
+      await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+      expect(await img.evaluate((i) => getComputedStyle(i).objectFit)).toBe('contain');
+    }
+    const [box, card] = [await frame.boundingBox(), await page.locator('#el-break .card-body > .compare .compare-frame').boundingBox()];
+    expect(box!.height, 'larger than in the card').toBeGreaterThan(card!.height);
+
+    // The same slider, by keyboard.
+    const range = dialog.getByRole('slider', { name: 'El sitio de El Break Food Truck, antes y después' });
+    await range.focus();
+    for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
+    await expect(range).toHaveValue('55');
+    expect(await frame.evaluate((el) => (el as HTMLElement).style.getPropertyValue('--pos'))).toBe('55%');
+
+    const axe = await new AxeBuilder({ page }).include('#zoom-el-break').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(open).toBeFocused();
+    await expect(page).toHaveURL(/\/el-break\/$/);
+  });
+
+  test('a project with no old site opens its new site large', async ({ page }) => {
+    await page.goto('/en/consejeria-escolar/');
+    await page.getByRole('button', { name: 'See it larger: Consejería Escolar' }).click();
+    const dialog = page.getByRole('dialog', { name: /: the new site$/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('slider')).toHaveCount(0);
+    await expect.poll(() => dialog.locator('img').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0)).toBe(true);
+    // Full screen on a phone, so no backdrop to tap: its close button.
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('button', { name: 'See it larger: Consejería Escolar' })).toBeFocused();
+  });
+});
+
 test.describe('projects without an old site', () => {
   test('show the new site alone, with no slider', async ({ page }) => {
     await page.goto('/melanie-creations/');
     const card = page.locator('#melanie-creations');
     await expect(card.getByRole('img', { name: /Melanie Creations en un teléfono/ })).toBeVisible();
     await expect(card.getByRole('slider')).toHaveCount(0);
-    await expect(card.getByText('Antes sus trabajos estaban solo en Instagram y Facebook.')).toBeVisible();
+    await expect(card.locator('.compare-note')).toHaveText('Antes sus trabajos estaban solo en Instagram y Facebook.');
     await expect(card.getByText('League City, Texas', { exact: false })).toBeVisible();
   });
 
@@ -705,6 +861,12 @@ test.describe('screenshots demo', () => {
     await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
     const stage = dialog.locator('[data-demo-shots]');
+    // The device buttons just name the device: no pixel widths for this audience.
+    expect((await dialog.locator('.demo-device').allTextContents()).map((t) => t.trim())).toEqual([
+      'Teléfono',
+      'Tableta',
+      'Computadora',
+    ]);
     for (const [device, alt] of [
       ['Teléfono', /En un teléfono/],
       ['Tableta', /En una tableta/],

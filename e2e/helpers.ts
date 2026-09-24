@@ -25,7 +25,6 @@ export const PARA_TI = [
   'melanie-creations',
   'precios',
   'que-incluye',
-  'que-mas-incluye',
   'sobre-mi',
   'contacto',
   'fin',
@@ -364,8 +363,28 @@ export async function readThrough(page: Page, press: () => Promise<void>, done: 
   return { unseen: [...all].filter((id) => !seen.has(id)), path, strayAnnouncements };
 }
 
+/** A page's HTML as a build with the intro video would serve it: no clip marked pending. */
+export const withoutPendingClips = (html: string) => html.replace(/ data-clip-pending(="")?/g, '');
+
+/**
+ * Serve every page as if the intro video existed: a draft marks a clip whose
+ * video isn't added yet `data-clip-pending` (just its picture, no player).
+ * With nothing else routed, the draft's missing video then 404s for real.
+ */
+export async function asIfIntroVideoExisted(page: Page) {
+  await page.route(
+    (url) => url.pathname.endsWith('/'),
+    async (route) => {
+      if (route.request().resourceType() !== 'document') return route.fallback();
+      const response = await route.fetch();
+      await route.fulfill({ response, body: withoutPendingClips(await response.text()) });
+    },
+  );
+}
+
 /** Serve a real WebM and caption file in place of the intro media the draft doesn't have yet. */
 export async function withRealIntroMedia(page: Page) {
+  await asIfIntroVideoExisted(page);
   await page.route('**/media/intro/saludo.webm', (route) =>
     route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' }),
   );

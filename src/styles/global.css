@@ -198,6 +198,30 @@ html.feed-page,
   backdrop-filter: saturate(1.4) blur(10px);
 }
 
+/* A thin line on the bar's bottom edge: how far along the feed the card on
+   screen is, in the open tab. No height of its own, and hidden until the
+   script sets it. */
+.feed-progress {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  pointer-events: none;
+}
+.feed-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feed-progress > span {
+    transition: transform 0.25s ease-out;
+  }
+}
+
 .tabs {
   display: flex;
   flex: 1;
@@ -205,9 +229,11 @@ html.feed-page,
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
-  /* Fade the right edge so a cut-off tab reads as "there is more", not as broken. */
-  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
-  padding-right: 1.25rem;
+  /* Fade the right edge so a cut-off tab reads as "there is more", not as
+     broken. Narrow, and the tabs compact, so Contacto (third) is in full view
+     on a 360px phone (e2e "tabs"). */
+  mask-image: linear-gradient(to right, #000 calc(100% - 1rem), transparent);
+  padding-right: 1rem;
 }
 .tabs::-webkit-scrollbar {
   display: none;
@@ -220,9 +246,9 @@ html:not([data-tab]) .tabs {
 .tab {
   flex: none;
   min-height: 2.5rem;
-  padding: 0.4rem 0.7rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
   color: var(--color-muted);
@@ -237,7 +263,7 @@ html:not([data-tab]) .tabs {
   flex: none;
   display: grid;
   place-items: center;
-  min-width: 2.75rem;
+  min-width: 2.5rem;
   min-height: 2.5rem;
   border: 1.5px solid var(--color-line);
   border-radius: 999px;
@@ -537,6 +563,11 @@ html:not([data-tab]) .tabs {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* A draft's clip with no video yet (Clip.astro): just its picture. */
+.clip[data-clip-pending] :is(.clip-controls, .clip-error),
+.intro:has(.clip[data-clip-pending]) .transcript {
+  display: none;
+}
 
 .clip-cc {
   font-size: 0.75rem;
@@ -597,6 +628,7 @@ html:not([data-tab]) .tabs {
  * The figure holds only the picture, so nothing in it can be squeezed out.
  */
 .compare {
+  position: relative;
   display: flex;
   flex: 0 1 22rem;
   flex-direction: column;
@@ -678,6 +710,46 @@ html:not([data-tab]) .tabs {
 }
 .compare-single {
   cursor: default;
+}
+/* Opens the comparison large. Beside the box in the page (so pressing it
+   never moves the slider), laid over its bottom-right corner, clear of the
+   hint in the middle. */
+.compare-enlarge {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.75);
+  color: #fff;
+  cursor: pointer;
+}
+/* The large view: the same comparison, both shots whole, as big as the
+   screen allows. */
+.compare-zoom-stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  background: var(--color-canvas);
+}
+.compare-zoom .compare {
+  flex: 1 1 auto;
+  align-items: center;
+  min-height: 0;
+}
+.compare-zoom .compare-frame {
+  max-width: 100%;
+}
+.compare-zoom .compare-frame :is(img, .img-missing) {
+  object-fit: contain;
+  object-position: center;
+}
+.compare-zoom-note {
+  padding-bottom: 1rem;
 }
 .compare-note {
   font-size: 0.925rem;
@@ -863,11 +935,25 @@ html:not([data-tab]) .tabs {
 .inclusions {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.5rem;
 }
+/* One row per item, the whole row a button that opens its explanation. */
 .inclusion {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-paper);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.inclusion:hover {
+  border-color: var(--color-accent);
 }
 .inclusion-icon {
   flex: none;
@@ -880,11 +966,15 @@ html:not([data-tab]) .tabs {
   color: var(--color-accent);
 }
 .inclusion-title {
+  flex: 1;
   font-weight: 700;
 }
-.inclusion-body {
-  font-size: 0.95rem;
-  color: var(--color-muted);
+.inclusion-more {
+  flex: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-accent-strong);
 }
 
 /* -------------------------------------------------------------------- about */
@@ -898,6 +988,8 @@ html:not([data-tab]) .tabs {
   min-height: 7rem;
   border-radius: 1.25rem;
   object-fit: cover;
+  /* Cropped to a short strip on small phones: keep the face in it. */
+  object-position: 50% 35%;
 }
 
 /* ------------------------------------------------------------------ contact */
@@ -1054,8 +1146,8 @@ html:not([data-tab]) .tabs {
 .demo-device {
   display: flex;
   flex: 1;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
   min-height: 3rem;
   padding: 0.4rem;
   border: 1.5px solid var(--color-line);
@@ -1067,11 +1159,6 @@ html:not([data-tab]) .tabs {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent-strong);
-}
-.demo-device-size {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-muted);
 }
 .demo-stage {
   position: relative;
@@ -1271,5 +1358,9 @@ html:not([data-tab]) .tabs {
     height: min(52rem, 92dvh);
     margin: auto;
     border-radius: 1.25rem;
+  }
+  /* Phone-shaped shots: a phone-shaped dialog. */
+  .demo.compare-zoom {
+    width: min(34rem, 94vw);
   }
 }

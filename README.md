@@ -50,22 +50,27 @@ says exactly what and where.
 
 ## Before launch
 
-`npm run check:launch` prints the list. Today it is:
+`npm run check:launch` prints the list. Until it is empty, the production
+job in CI fails on purpose (the strict build refuses placeholders and
+missing media) and the real site stays offline; the preview is unaffected.
+Today it is:
 
 - the real domain (`src/data/site.ts` → `url`);
-- the real WhatsApp and phone number (`src/data/site.ts` → `contact`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the media: your portrait, the share image, and the intro video with its
-  poster and its captions (`public/media/intro/saludo.es.vtt` and `.en.vtt`,
-  timed to the real recording).
+- the share image (`src/assets/media/share-default.jpg`);
+- the intro video, its poster and its captions (`public/media/intro/`:
+  `saludo.webm`, `saludo.mp4`, `saludo.es.vtt` and `.en.vtt` timed to the
+  real recording; `src/assets/media/intro/saludo-poster.jpg`). Until the
+  video exists, a draft shows the intro's picture and words with no video
+  buttons.
+
+Done: the WhatsApp and phone number (787-344-4919) and your portrait.
 
 Also worth doing:
 
 - Use an email on your own domain instead of a personal Gmail address — it
   is published on the site (and this repository is public).
 - One or two more projects: the feed is strongest with 8–12 cards.
-- "Qué incluye, en cristiano" — keep it if it sounds like you; "sin enredos"
-  is an alternative.
 
 ## Test on a real phone
 
