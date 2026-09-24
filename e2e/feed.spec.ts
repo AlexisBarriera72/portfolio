@@ -333,6 +333,25 @@ test.describe('pricing', () => {
   });
 });
 
+test.describe('progress', () => {
+  test('the line under the bar shows how far along the open tab the card on screen is', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    const filled = () =>
+      page.locator('[data-feed-progress]').evaluate((bar) => {
+        const whole = bar.getBoundingClientRect().width;
+        return bar.firstElementChild!.getBoundingClientRect().width / whole;
+      });
+    await expect.poll(filled).toBeCloseTo(1 / PARA_TI.length, 2);
+    await page.keyboard.press('End');
+    await expectAligned(page, 'fin');
+    await expect.poll(filled).toBeCloseTo(1, 2);
+    await page.getByRole('tab', { name: 'Precios' }).click();
+    await expect.poll(filled).toBeCloseTo(1 / 3, 2);
+    await expect(page.locator('[data-feed-progress]')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
 test.describe('what you get', () => {
   test('one card lists all six; each opens its explanation, and closing returns to it', async ({ page }) => {
     await page.goto('/que-incluye/');

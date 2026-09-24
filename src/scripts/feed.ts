@@ -11,7 +11,8 @@
  * The script adds:
  *  - the active card: the one under the middle of the feed. Its page path
  *    goes into the address bar (replaceState — scrolling never adds history
- *    entries), its title into the tab, and the language link follows it;
+ *    entries), its title into the tab, the language link follows it, and
+ *    the line under the bar shows how far along the tab it is;
  *  - video: only the active card and its neighbours hold their clip (every
  *    other clip is unloaded), and only the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
@@ -38,6 +39,7 @@ function init(feed: HTMLElement): void {
   const panel = document.getElementById('feed');
   const langLink = document.querySelector<HTMLAnchorElement>('[data-lang-link]');
   const status = document.querySelector<HTMLElement>('[data-feed-status]');
+  const progress = document.querySelector<HTMLElement>('[data-feed-progress]');
   const prev = document.querySelector<HTMLButtonElement>('[data-feed-prev]');
   const next = document.querySelector<HTMLButtonElement>('[data-feed-next]');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -202,6 +204,7 @@ function init(feed: HTMLElement): void {
     const list = visibleCards();
     const i = list.indexOf(card);
     updateArrows();
+    progress?.style.setProperty('--progress', String((i + 1) / list.length));
 
     // Clips: held only for this card and its neighbours (the rest are
     // unloaded — sources detached, buffer released); only this one plays.

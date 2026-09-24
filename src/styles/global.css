@@ -198,6 +198,30 @@ html.feed-page,
   backdrop-filter: saturate(1.4) blur(10px);
 }
 
+/* A thin line on the bar's bottom edge: how far along the feed the card on
+   screen is, in the open tab. No height of its own, and hidden until the
+   script sets it. */
+.feed-progress {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  pointer-events: none;
+}
+.feed-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feed-progress > span {
+    transition: transform 0.25s ease-out;
+  }
+}
+
 .tabs {
   display: flex;
   flex: 1;
