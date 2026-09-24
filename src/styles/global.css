@@ -898,6 +898,8 @@ html:not([data-tab]) .tabs {
   min-height: 7rem;
   border-radius: 1.25rem;
   object-fit: cover;
+  /* Cropped to a short strip on small phones: keep the face in it. */
+  object-position: 50% 35%;
 }
 
 /* ------------------------------------------------------------------ contact */
