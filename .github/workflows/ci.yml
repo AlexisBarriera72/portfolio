@@ -40,13 +40,16 @@ jobs:
       - run: npm run test:e2e
         env:
           PW_WEBKIT: '1'
+      # Also when everything passed: a test that failed once and passed on
+      # retry leaves its report (and "requests still loading") in test-results/.
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: |
             playwright-report/
             test-results/
+          if-no-files-found: ignore
           retention-days: 7
 
   preview:
