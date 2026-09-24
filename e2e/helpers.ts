@@ -25,7 +25,6 @@ export const PARA_TI = [
   'melanie-creations',
   'precios',
   'que-incluye',
-  'que-mas-incluye',
   'sobre-mi',
   'contacto',
   'fin',

@@ -74,6 +74,11 @@ export const es: UIStrings = {
     close: 'Cerrar',
   },
 
+  inclusions: {
+    hint: 'Toca uno para ver qué significa.',
+    close: 'Cerrar',
+  },
+
   contact: {
     orByEmail: 'O escríbeme por correo',
     formHeading: 'Mándame un mensaje',

@@ -76,6 +76,11 @@ export const en: UIStrings = {
     close: 'Close',
   },
 
+  inclusions: {
+    hint: 'Tap one to see what it means.',
+    close: 'Close',
+  },
+
   contact: {
     orByEmail: 'Or send me an email',
     formHeading: 'Send me a message',

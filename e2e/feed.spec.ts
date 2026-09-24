@@ -65,7 +65,7 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.keyboard.press('ArrowDown');
     await expect(page).toHaveURL(/\/el-break\/$/);
-    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 10: El Break Food Truck');
+    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 9: El Break Food Truck');
     await page.keyboard.press('End');
     await expect(page).toHaveURL(/\/fin\/$/);
     await page.keyboard.press('Home');
@@ -333,13 +333,42 @@ test.describe('pricing', () => {
   });
 });
 
+test.describe('what you get', () => {
+  test('one card lists all six; each opens its explanation, and closing returns to it', async ({ page }) => {
+    await page.goto('/que-incluye/');
+    const items = page.locator('#que-incluye button.inclusion');
+    await expect(items).toHaveCount(6);
+    await expect(page.locator('#h-que-incluye')).toHaveText('Qué incluye');
+
+    for (const item of await items.all()) {
+      const title = (await item.locator('.inclusion-title').textContent())!.trim();
+      await expect(item).toHaveAttribute('aria-haspopup', 'dialog');
+      await item.click();
+      const panel = page.getByRole('dialog', { name: title });
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('.panel-body p')).not.toBeEmpty();
+      await page.keyboard.press('Escape');
+      await expect(panel).toBeHidden();
+      await expect(item).toBeFocused();
+    }
+
+    // The backdrop closes it too, and the panel passes axe.
+    await items.first().click();
+    const axe = await new AxeBuilder({ page }).include('#que-incluye-1').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await page.mouse.click(5, 5);
+    await expect(page.locator('#que-incluye-1')).toBeHidden();
+    await expect(page).toHaveURL(/\/que-incluye\/$/);
+  });
+});
+
 test.describe('tabs', () => {
   test('filter the feed, go into the URL, and Back undoes them', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('tab', { name: 'Precios' }).click();
     await expect(page).toHaveURL(/\/precios\/\?tab=precios$/);
     await expect(page.getByRole('tab', { name: 'Precios' })).toHaveAttribute('aria-selected', 'true');
-    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'que-mas-incluye', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'fin']);
     await expect(page.locator('[data-lang-link]')).toHaveAttribute('href', '/en/precios/?tab=precios');
 
     await page.goBack();

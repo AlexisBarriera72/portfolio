@@ -161,7 +161,7 @@ test.describe('touch swipes (Chromium, over CDP)', () => {
     await expectAligned(page, 'precios');
     await swipe(page, cdp, 0.7, 'slow');
     const landed = await expectResting(page, 'after a swipe in the Precios tab');
-    expect(['que-incluye', 'que-mas-incluye', 'fin']).toContain(landed);
+    expect(['que-incluye', 'fin']).toContain(landed);
   });
 
   test('turning the phone keeps the same card, aligned', async ({ page }) => {

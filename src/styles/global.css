@@ -863,11 +863,25 @@ html:not([data-tab]) .tabs {
 .inclusions {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.5rem;
 }
+/* One row per item, the whole row a button that opens its explanation. */
 .inclusion {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.4rem 0.9rem 0.4rem 0.5rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-paper);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.inclusion:hover {
+  border-color: var(--color-accent);
 }
 .inclusion-icon {
   flex: none;
@@ -880,11 +894,15 @@ html:not([data-tab]) .tabs {
   color: var(--color-accent);
 }
 .inclusion-title {
+  flex: 1;
   font-weight: 700;
 }
-.inclusion-body {
-  font-size: 0.95rem;
-  color: var(--color-muted);
+.inclusion-more {
+  flex: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-accent-strong);
 }
 
 /* -------------------------------------------------------------------- about */

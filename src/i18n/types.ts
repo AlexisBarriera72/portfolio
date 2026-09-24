@@ -105,6 +105,12 @@ export interface UIStrings {
     close: string;
   };
 
+  inclusions: {
+    /** Under the heading: the rows open. */
+    hint: string;
+    close: string;
+  };
+
   contact: {
     orByEmail: string;
     formHeading: string;

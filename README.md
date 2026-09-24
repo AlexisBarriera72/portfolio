@@ -64,8 +64,6 @@ Also worth doing:
 - Use an email on your own domain instead of a personal Gmail address — it
   is published on the site (and this repository is public).
 - One or two more projects: the feed is strongest with 8–12 cards.
-- "Qué incluye, en cristiano" — keep it if it sounds like you; "sin enredos"
-  is an alternative.
 
 ## Test on a real phone
 
