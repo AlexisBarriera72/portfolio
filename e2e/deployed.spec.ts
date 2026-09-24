@@ -1,3 +1,4 @@
+import { appendFileSync } from 'node:fs';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { isPlaceholder } from '../src/data/validate';
 
@@ -102,6 +103,8 @@ test('every page is served, with the security headers', async ({ request }) => {
     const headers = response.headers();
     expect(headers['content-type'], path).toMatch(/^text\/html/);
     expect(headers['content-security-policy'], path).toContain("frame-ancestors 'none'");
+    // The local test server leaves this one out (plain http); a real deployment must send it.
+    expect(headers['content-security-policy'], path).toContain('upgrade-insecure-requests');
     expect(headers['x-content-type-options'], path).toBe('nosniff');
   }
   const missing = await request.get(`/no-existe-${Date.now()}/`);
@@ -242,6 +245,96 @@ test('every live demo site answers and allows being framed here', async ({ page,
       const allowed = list.some((s) => s === '*' || s === 'https:' || s.replace(/\/$/, '') === HERE);
       expect(allowed, `${url} frame-ancestors ${sources!.trim()} excludes ${HERE}`).toBe(true);
     }
+  }
+});
+
+/** Each project card's own link to the client's site, and why its demo isn't live (if it isn't). */
+const projectSites = (page: import('@playwright/test').Page) =>
+  page.locator('.card-project').evaluateAll((cards) =>
+    cards.map((card) => ({
+      url: card.querySelector<HTMLAnchorElement>('.actions a.btn-primary')!.href,
+      reason: card.querySelector<HTMLElement>('dialog[data-demo]')?.dataset.demoReason,
+    })),
+  );
+
+test('every project links to a site that answers', async ({ page, request }) => {
+  await page.goto('/');
+  const sites = await projectSites(page);
+  expect(sites.length).toBeGreaterThan(0);
+  for (const { url } of sites) {
+    if (draft.placeholderDemos.includes(new URL(url).origin)) continue;
+    const response = await request.get(url, { maxRedirects: 5, timeout: 20_000 });
+    expect(response.status(), url).toBeLessThan(400);
+  }
+});
+
+test('each screenshots or recorded demo opens and shows its content', async ({ page }) => {
+  // Live demos are checked by the framing tests above and below.
+  await page.goto('/');
+  for (const opener of await page.locator('[data-demo-open]').all()) {
+    const dialog = page.locator(`#${await opener.getAttribute('data-demo-open')}`);
+    if ((await dialog.locator('iframe[data-demo-src]').count()) > 0) continue;
+    const name = (await dialog.locator('.demo-title').textContent())!.trim();
+    await opener.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+    await opener.click();
+    await expect(dialog, name).toBeVisible();
+
+    if ((await dialog.locator('[data-demo-shots]').count()) > 0) {
+      // Every device's capture, as the visitor switches to it, really loads.
+      for (const device of await dialog.locator('.demo-device').all()) {
+        await device.click();
+        const shot = dialog.locator(`.demo-shot[data-device="${await device.getAttribute('data-device')}"]`);
+        await expect(shot, `${name}: ${await device.getAttribute('data-device')}`).toBeVisible();
+        // A placeholder instead of a capture only happens in a draft, for a file
+        // it declares missing; "every image … is served" holds it to that.
+        if ((await shot.locator('img').count()) === 0) continue;
+        await expect
+          .poll(() => shot.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0), {
+            message: `${name}: the ${await device.getAttribute('data-device')} capture loads`,
+            timeout: 15_000,
+          })
+          .toBe(true);
+      }
+    } else {
+      // A screen recording: its video gets far enough to know what it is.
+      await expect
+        .poll(() => dialog.locator('video').evaluate((v: HTMLVideoElement) => v.readyState), {
+          message: `${name}: the recording loads`,
+          timeout: 20_000,
+        })
+        .toBeGreaterThan(0);
+    }
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  }
+});
+
+test('a site shown as screenshots because it refuses framing: a change is reported, not failed', async ({
+  page,
+  request,
+}) => {
+  // A client site that starts allowing framing breaks nothing here — the
+  // screenshots still work — but the demo could now be live. Say so, in the
+  // test's annotations and the CI job's summary, without failing the deploy.
+  await page.goto('/');
+  const notices: string[] = [];
+  for (const { url, reason } of await projectSites(page)) {
+    if (reason !== 'x-frame-options' && reason !== 'frame-ancestors') continue;
+    const response = await request.get(url, { maxRedirects: 5, timeout: 20_000 }).catch(() => undefined);
+    // Whether the site answers at all is "every project links to a site that answers".
+    if (!response || response.status() >= 400) continue;
+    const headers = response.headers();
+    const ancestors = [...(headers['content-security-policy'] ?? '').matchAll(/frame-ancestors([^;,]*)/gi)].map((m) =>
+      m[1]!.trim(),
+    );
+    const refuses =
+      /deny|sameorigin/i.test(headers['x-frame-options'] ?? '') ||
+      ancestors.some((list) => !list.split(/\s+/).some((s) => s === '*' || s === 'https:' || s.replace(/\/$/, '') === HERE));
+    if (!refuses) notices.push(`${url} no longer refuses to be framed (${reason}): its demo could be live again.`);
+  }
+  for (const description of notices) test.info().annotations.push({ type: 'notice', description });
+  if (notices.length && process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n### Demo notices\n\n${notices.map((n) => `- ${n}`).join('\n')}\n`);
   }
 });
 

@@ -1,6 +1,26 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import {
+  PARA_TI,
+  PARA_TI_PATHS,
+  atBottom,
+  atTop,
+  disableSnapping,
+  enlargeText,
+  expectAligned,
+  installFeedHelpers,
+  nextFrame,
+  overflowing,
+  placeCardTop,
+  readThrough,
+  scrollToVeryEnd,
+  settle,
+  tagControls,
+  unreachable,
+  visibleSlugs,
+  withRealIntroMedia,
+} from './helpers';
 
 /**
  * Behaviour of the built feed, against a draft build. Every test is guarded
@@ -8,42 +28,11 @@ import { expect, test } from './fixtures';
  * exact files the draft declares missing in /draft-missing.json.
  */
 
-const LIVE_DEMO = 'https://elbreak.example';
+const LIVE_DEMO = 'https://consejeria-escolar.vercel.app';
 
-/** The "Para ti" feed, in order. */
-const PARA_TI = [
-  'inicio',
-  'el-break',
-  'consejeria-escolar',
-  'melanie-creations',
-  'precios',
-  'que-incluye',
-  'sobre-mi',
-  'contacto',
-  'fin',
-];
-
-const visibleSlugs = (page: Page) =>
-  page.locator('.feed > .card').evaluateAll((cards) =>
-    cards.filter((c) => getComputedStyle(c).display !== 'none').map((c) => c.id),
-  );
-
-/** Distance from the card's top to just under the sticky bar — ~0 means "this card is on screen". */
-const offsetFromBar = (page: Page, slug: string) =>
-  page.evaluate((id) => {
-    const bar = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-    return Math.round(document.getElementById(id)!.getBoundingClientRect().top - bar);
-  }, slug);
-
-/** Serve a real WebM and caption file in place of the intro media the draft doesn't have yet. */
-async function withRealIntroMedia(page: Page) {
-  await page.route('**/media/intro/saludo.webm', (route) =>
-    route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' }),
-  );
-  await page.route('**/media/intro/saludo.*.vtt', (route) =>
-    route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' }),
-  );
-}
+test.beforeEach(async ({ page }) => {
+  await installFeedHelpers(page);
+});
 
 const introVideo = (page: Page) => page.locator('#inicio video');
 
@@ -59,7 +48,7 @@ test.describe('feed', () => {
   test('a card page opens on its card', async ({ page }) => {
     await page.goto('/el-break/');
     await expect(page).toHaveTitle(/^El Break Food Truck · /);
-    await expect.poll(() => offsetFromBar(page, 'el-break')).toBeLessThanOrEqual(2);
+    await expectAligned(page, 'el-break');
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', /\/el-break\/$/);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/$/);
   });
@@ -76,7 +65,7 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.keyboard.press('ArrowDown');
     await expect(page).toHaveURL(/\/el-break\/$/);
-    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 9: El Break Food Truck');
+    await expect(page.locator('[data-feed-status]')).toHaveText('Tarjeta 2 de 10: El Break Food Truck');
     await page.keyboard.press('End');
     await expect(page).toHaveURL(/\/fin\/$/);
     await page.keyboard.press('Home');
@@ -87,98 +76,19 @@ test.describe('feed', () => {
     await page.goto('/');
     await page.locator('#inicio').getByRole('link', { name: 'Ver precios' }).click();
     await expect(page).toHaveURL(/\/precios\/$/);
-    await expect.poll(() => offsetFromBar(page, 'precios')).toBeLessThanOrEqual(2);
+    await expectAligned(page, 'precios');
   });
 });
 
-/** Resolves once the page has stopped scrolling (and the observer has had a frame to react). */
-const settle = (page: Page) =>
-  page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        let last = scrollY;
-        let still = 0;
-        const tick = () => {
-          still = scrollY === last ? still + 1 : 0;
-          last = scrollY;
-          if (still >= 6) resolve();
-          else requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }),
-  );
-
-/** Tag every control in the shown cards (outside dialogs and closed disclosures) with data-reach. */
-const tagControls = (page: Page) =>
-  page.evaluate(() => {
-    let n = 0;
-    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
-      if (getComputedStyle(card).display === 'none') continue;
-      const controls = card.querySelectorAll<HTMLElement>(
-        'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])',
-      );
-      for (const el of controls) {
-        // The card's own <article> is focusable too, but it is the card, not a control in it.
-        if (el.matches('.card-body') || el.closest('dialog') || !el.checkVisibility()) continue;
-        el.dataset.reach = `${card.id}: ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)} #${n++}`;
-      }
-    }
-    return n;
-  });
-
-/** The tagged controls that are wholly on screen, below the sticky bar. */
-const fullyOnScreen = (page: Page) =>
-  page.evaluate(() => {
-    const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-    return [...document.querySelectorAll<HTMLElement>('[data-reach]')]
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.height > 0 && r.top >= top - 1 && r.bottom <= innerHeight + 1;
-      })
-      .map((el) => el.dataset.reach!);
-  });
-
-/**
- * Press `key` (or click `button`) until `done`, and record what came on
- * screen. Returns the controls never seen, the order cards became active in,
- * and every announcement made while the card did NOT change (should be none).
- */
-async function readThrough(page: Page, press: () => Promise<void>, done: () => Promise<boolean>) {
-  const all = new Set<string>();
-  const seen = new Set<string>();
-  for (const id of await page.locator('[data-reach]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.reach!))) all.add(id);
-  for (const id of await fullyOnScreen(page)) seen.add(id);
-  const path = [new URL(page.url()).pathname];
-  const strayAnnouncements: string[] = [];
-  const status = page.locator('[data-feed-status]');
-  for (let i = 0; i < 400 && !(await done()); i++) {
-    const before = await status.textContent();
-    await press();
-    await settle(page);
-    for (const id of await fullyOnScreen(page)) seen.add(id);
-    const now = new URL(page.url()).pathname;
-    if (now !== path.at(-1)) path.push(now);
-    else if ((await status.textContent()) !== before) strayAnnouncements.push((await status.textContent()) ?? '');
-  }
-  return { unseen: [...all].filter((id) => !seen.has(id)), path, strayAnnouncements };
-}
-
-/** Like a larger default font in the browser's settings. (Via the CSSOM: the CSP rightly blocks a <style> tag.) */
-const enlargeText = (page: Page, size: string) =>
-  page.evaluate((s) => {
-    document.documentElement.style.fontSize = s;
-  }, size);
-
-const PARA_TI_PATHS = PARA_TI.map((slug) => (slug === 'inicio' ? '/' : `/${slug}/`));
-const atBottom = (page: Page) => page.evaluate(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 1);
-const atTop = (page: Page) => page.evaluate(() => scrollY <= 0);
-
 test.describe('keyboard reading', () => {
-  // Short screens and enlarged text make cards taller than the screen.
+  // At normal text size every card fits, so the keys move card by card; with
+  // enlarged text or a phone on its side a card scrolls inside itself, and
+  // the keys read through it before moving on.
   for (const { name, viewport, text } of [
     { name: 'a 390×844 phone', viewport: { width: 390, height: 844 }, text: '100%' },
     { name: 'a 360×640 phone', viewport: { width: 360, height: 640 }, text: '100%' },
     { name: 'a 360×640 phone with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+    { name: 'a phone on its side, 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
   ]) {
     test.describe(name, () => {
       test.beforeEach(async ({ page }) => {
@@ -201,7 +111,7 @@ test.describe('keyboard reading', () => {
       test('PageUp reads back up the same way', async ({ page }) => {
         await page.keyboard.press('End');
         await settle(page);
-        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await scrollToVeryEnd(page);
         await settle(page);
         const run = await readThrough(page, () => page.keyboard.press('PageUp'), () => atTop(page));
         expect(run.unseen).toEqual([]);
@@ -222,8 +132,8 @@ test.describe('keyboard reading', () => {
     await page.goto('/precios/');
     await enlargeText(page, '150%');
     await settle(page);
-    const whatsapp = page.locator('#precios a.btn-whatsapp');
-    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > innerHeight)).toBe(true);
+    const whatsapp = page.locator('#precios .card-body > a.btn-whatsapp');
+    expect(await whatsapp.evaluate((el) => el.getBoundingClientRect().top > window.__feedView().bottom)).toBe(true);
     let shown = false;
     for (let i = 0; i < 20 && new URL(page.url()).pathname === '/precios/'; i++) {
       await page.keyboard.press('PageDown');
@@ -231,24 +141,14 @@ test.describe('keyboard reading', () => {
       if (new URL(page.url()).pathname !== '/precios/') break;
       shown ||= await whatsapp.evaluate((el) => {
         const r = el.getBoundingClientRect();
-        return r.top >= document.querySelector('.topbar')!.getBoundingClientRect().bottom && r.bottom <= innerHeight;
+        const view = window.__feedView();
+        return r.top >= view.top && r.bottom <= view.bottom;
       });
     }
     expect(shown).toBe(true);
     await expect(page).toHaveURL(/\/que-incluye\/$/);
   });
 });
-
-/** Scroll so the top of card `id` sits at `at` (0–1) of the way down the visible area. */
-const placeCardTop = (page: Page, id: string, at: number) =>
-  page.evaluate(
-    ([id, at]) => {
-      const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom;
-      const target = top + (innerHeight - top) * at;
-      window.scrollBy({ top: document.getElementById(id)!.getBoundingClientRect().top - target, behavior: 'instant' });
-    },
-    [id, at] as const,
-  );
 
 test.describe('active card', () => {
   test.beforeEach(async ({ page }) => {
@@ -257,7 +157,7 @@ test.describe('active card', () => {
 
   /**
    * Partial scrolls with a card boundary just above and just below the middle
-   * of the visible area, coming from both directions. Snapping is turned off
+   * of the feed, coming from both directions. Snapping is turned off
    * so each position holds exactly; the active card must be the one under
    * the middle. `from` is the card above the boundary, `to` the one below.
    */
@@ -280,7 +180,7 @@ test.describe('active card', () => {
       await page.setViewportSize(viewport);
       await page.goto('/');
       await enlargeText(page, text);
-      await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+      await disableSnapping(page);
       await sweep(page, 'el-break', 'consejeria-escolar');
       await sweep(page, 'precios', 'que-incluye');
     });
@@ -289,10 +189,147 @@ test.describe('active card', () => {
   test('follows the screen when it rotates', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.evaluate(() => (document.documentElement.style.scrollSnapType = 'none'));
+    await disableSnapping(page);
     await sweep(page, 'el-break', 'consejeria-escolar');
     await page.setViewportSize({ width: 844, height: 390 });
+    // Let the feed react to the new size (it puts the current card back) before scrolling.
+    await settle(page);
     await sweep(page, 'precios', 'que-incluye');
+  });
+});
+
+test.describe('a resize in the middle of a jump', () => {
+  // The jump is animated (no reduced motion), so there is a moment to resize in.
+  test('lands on the card the jump was going to: screen, address, focus and announcement agree', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto('/');
+    await expectAligned(page, 'inicio');
+    const end = await page.evaluate(() => {
+      const s = window.__feedScroller();
+      return s.scrollHeight - s.clientHeight;
+    });
+    await page.keyboard.press('End');
+    // Provably in flight: past the first card, well short of the last.
+    await page.waitForFunction(
+      (end) => {
+        const top = window.__feedScroller().scrollTop;
+        return top > 20 && top < end - 200;
+      },
+      end,
+      { polling: 'raf' },
+    );
+    const size = page.viewportSize()!;
+    // A phone turned sideways; on a desktop, the window made shorter.
+    await page.setViewportSize(
+      isMobile ? { width: size.height, height: size.width } : { width: size.width, height: size.height - 150 },
+    );
+    await expectAligned(page, 'fin');
+    await expect(page).toHaveURL(/\/fin\/$/);
+    expect(await page.evaluate(() => document.activeElement?.closest('.card')?.id)).toBe('fin');
+    await expect(page.locator('[data-feed-status]')).toContainText((await page.locator('#h-fin').textContent())!.trim());
+  });
+});
+
+test.describe('one screen per card', () => {
+  /**
+   * At normal text size a card fits its panel — nothing to scroll inside it,
+   * so a swipe always moves the feed — on every phone from 640px tall (most
+   * phones, once the browser's own bars are counted). Swept every 20px up to
+   * 1000, with both sides of the layout's 800px switch and the old 700px one.
+   * Below 640 the pricing card scrolls inside itself: a known limit.
+   */
+  const HEIGHTS = [
+    ...new Set([...Array.from({ length: 19 }, (_, i) => 640 + i * 20), 699, 700, 701, 740, 799, 800, 801]),
+  ].sort((a, b) => a - b);
+
+  for (const path of ['/', '/en/']) {
+    test(`every card fits, 640 to 1000px tall, on ${path}`, async ({ page, isMobile }) => {
+      test.setTimeout(120_000);
+      // Phones from 360 to 430 wide; on a desktop, the column in a wide window.
+      const widths = isMobile ? [360, 375, 390, 412, 430] : [1280];
+      await page.goto(path);
+      const tooTall: string[] = [];
+      for (const width of widths) {
+        for (const height of HEIGHTS) {
+          await page.setViewportSize({ width, height });
+          await nextFrame(page);
+          for (const card of await overflowing(page)) tooTall.push(`${width}×${height}: ${card}`);
+        }
+      }
+      expect(tooTall).toEqual([]);
+    });
+  }
+});
+
+test.describe('everything on a card can be read', () => {
+  // Where a card is taller than its panel, it scrolls inside itself — and
+  // every heading, paragraph and control must then be reachable, whole, and
+  // not cut off or covered (not just the buttons).
+  for (const path of ['/', '/en/']) {
+    for (const { name, viewport, text } of [
+      { name: 'a phone on its side, 844×390', viewport: { width: 844, height: 390 }, text: '100%' },
+      { name: '390×844 with text at 150%', viewport: { width: 390, height: 844 }, text: '150%' },
+      { name: '360×640 with text at 150%', viewport: { width: 360, height: 640 }, text: '150%' },
+    ]) {
+      test(`${name}, on ${path}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.goto(path);
+        await enlargeText(page, text);
+        const problems: string[] = [];
+        for (const slug of PARA_TI) problems.push(...(await unreachable(page, slug)));
+        // And with the intro's transcript open.
+        await page.locator('#inicio details.transcript').evaluate((d) => {
+          (d as HTMLDetailsElement).open = true;
+        });
+        problems.push(...(await unreachable(page, 'inicio')).map((p) => `transcript open: ${p}`));
+        expect(problems).toEqual([]);
+      });
+    }
+  }
+});
+
+test.describe('project buttons', () => {
+  for (const path of ['/', '/en/']) {
+    test(`keep their label on one line and whole at 360×640 on ${path}`, async ({ page }) => {
+      await page.setViewportSize({ width: 360, height: 640 });
+      await page.goto(path);
+      const bad = await page.locator('.card-project .actions .btn').evaluateAll((buttons) =>
+        buttons
+          .filter((b) => b.checkVisibility())
+          .filter((b) => b.scrollWidth > b.clientWidth + 1 || b.getBoundingClientRect().height > 52)
+          .map((b) => `${b.closest('.card')!.id}: ${b.textContent!.trim()}`),
+      );
+      expect(bad).toEqual([]);
+    });
+  }
+});
+
+test.describe('pricing', () => {
+  test('each plan opens its full list in a panel, and closing it returns to the card', async ({ page }) => {
+    await page.goto('/precios/');
+    const plan = page.getByRole('button', { name: /Página completa/ });
+    await expect(plan).toHaveAttribute('aria-haspopup', 'dialog');
+    await plan.click();
+    const panel = page.getByRole('dialog', { name: 'Página completa' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Formulario de órdenes o reservaciones')).toBeVisible();
+    await expect(panel.locator('a.btn-whatsapp')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).include('#plan-precios-completa').analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(plan).toBeFocused();
+    await expect(page).toHaveURL(/\/precios\/$/);
+
+    // A click on the backdrop closes it too.
+    await page.getByRole('button', { name: /Mantenimiento/ }).click();
+    const other = page.getByRole('dialog', { name: 'Mantenimiento' });
+    await expect(other).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(other).toBeHidden();
   });
 });
 
@@ -302,7 +339,7 @@ test.describe('tabs', () => {
     await page.getByRole('tab', { name: 'Precios' }).click();
     await expect(page).toHaveURL(/\/precios\/\?tab=precios$/);
     await expect(page.getByRole('tab', { name: 'Precios' })).toHaveAttribute('aria-selected', 'true');
-    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'fin']);
+    expect(await visibleSlugs(page)).toEqual(['precios', 'que-incluye', 'que-mas-incluye', 'fin']);
     await expect(page.locator('[data-lang-link]')).toHaveAttribute('href', '/en/precios/?tab=precios');
 
     await page.goBack();
@@ -351,15 +388,158 @@ test.describe('video', () => {
   });
 });
 
-test.describe('intro clip', () => {
-  test('fills the whole intro card, with its controls at the top', async ({ page }) => {
-    await page.goto('/');
-    const card = await page.locator('#inicio .intro').boundingBox();
-    const clip = await page.locator('#inicio .intro-clip').boundingBox();
-    const controls = await page.locator('#inicio .clip-controls').boundingBox();
-    expect(clip!.height).toBeGreaterThan(card!.height - 2);
-    expect(controls!.y - card!.y).toBeLessThan(24);
+/**
+ * A home page with four more clip cards after the intro, cloned from its
+ * markup with unique ids, paths and media URLs (each served the fixture WebM
+ * and captions), so resource handling can be watched across several real
+ * clips. Returns the media requests seen per clip.
+ */
+async function withManyClips(page: Page) {
+  await withRealIntroMedia(page);
+  const requests = new Map<string, number>();
+  await page.route('**/media/test/**', (route) => {
+    const url = new URL(route.request().url()).pathname;
+    const clip = url.match(/clip-\d/)?.[0] ?? url;
+    requests.set(clip, (requests.get(clip) ?? 0) + 1);
+    return url.endsWith('.vtt')
+      ? route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' })
+      : route.fulfill({ path: 'e2e/fixtures/clip.webm', contentType: 'video/webm' });
   });
+  await page.route(/\/$/, async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    const start = html.indexOf('<li class="card is-start" id="inicio"');
+    const end = html.indexOf('<li class="card', start + 10);
+    const intro = html.slice(start, end).replace('card is-start', 'card');
+    const clones = [1, 2, 3, 4]
+      .map((n) =>
+        intro
+          .replaceAll('id="inicio"', `id="clip-${n}"`)
+          .replaceAll('h-inicio', `h-clip-${n}`)
+          .replace('data-path="/"', `data-path="/clip-${n}/"`)
+          .replace('data-alt-path="/en/"', `data-alt-path="/en/clip-${n}/"`)
+          .replaceAll('/media/intro/saludo', `/media/test/clip-${n}`),
+      )
+      .join('');
+    await route.fulfill({ response, body: html.slice(0, end) + clones + html.slice(end) });
+  });
+  return requests;
+}
+
+/** Which clips hold sources, and which are playing. */
+const clipState = (page: Page) =>
+  page.evaluate(() => {
+    const held: string[] = [];
+    const playing: string[] = [];
+    for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+      const video = card.querySelector<HTMLVideoElement>(':scope > article > .intro > [data-clip] video');
+      if (!video) continue;
+      if ([...video.querySelectorAll('source')].some((s) => s.hasAttribute('src'))) held.push(card.id);
+      if (!video.paused) playing.push(card.id);
+    }
+    return { held, playing };
+  });
+
+test.describe('video window', () => {
+  test('only the card on screen and its neighbours hold a clip; only it plays; choices survive', async ({ page }) => {
+    const requests = await withManyClips(page);
+    await page.goto('/');
+    await expectAligned(page, 'inicio');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['inicio', 'clip-1'], playing: ['inicio'] });
+
+    // Rapid moves: three cards down.
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+    await expectAligned(page, 'clip-3');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['clip-2', 'clip-3', 'clip-4'], playing: ['clip-3'] });
+
+    // Choices on clip-3: sound on, captions off, then pause by hand. (Sound
+    // comes first: turning the sound on starts a paused clip, on purpose.)
+    const clip3 = page.locator('#clip-3');
+    await clip3.getByRole('button', { name: 'Activar el sonido' }).click();
+    await clip3.getByRole('button', { name: 'Subtítulos' }).click();
+    await clip3.getByRole('button', { name: 'Pausar el video' }).click();
+    await expect.poll(() => clipState(page).then((s) => s.playing)).toEqual([]);
+
+    // Far away and back, fast: End, Home, End.
+    await page.keyboard.press('End');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('End');
+    await expectAligned(page, 'fin');
+    await expect.poll(() => clipState(page)).toEqual({ held: [], playing: [] });
+    const clip1Requests = requests.get('clip-1') ?? 0;
+    await page.waitForTimeout(500);
+    expect(requests.get('clip-1') ?? 0, 'an unloaded clip fetches nothing more').toBe(clip1Requests);
+
+    // Back to clip-3: reloaded, still paused, still unmuted, captions still off.
+    await page.evaluate(() => document.getElementById('clip-3')!.scrollIntoView({ behavior: 'instant' }));
+    await expectAligned(page, 'clip-3');
+    await expect.poll(() => clipState(page)).toEqual({ held: ['clip-2', 'clip-3', 'clip-4'], playing: [] });
+    expect(await clip3.locator('video').evaluate((v: HTMLVideoElement) => v.muted)).toBe(false);
+    await expect(clip3.getByRole('button', { name: 'Subtítulos' })).toHaveAttribute('aria-pressed', 'false');
+    await expect
+      .poll(() => clip3.locator('video').evaluate((v: HTMLVideoElement) => [...v.textTracks].map((t) => t.mode)))
+      .toEqual(['hidden']);
+    await expect(clip3.locator('[data-clip-error-text]')).toHaveText('');
+  });
+});
+
+test.describe('video window: stale results', () => {
+  test('a late failure from an earlier load never marks the reloaded clip as failed', async ({ page }) => {
+    await withManyClips(page);
+    // clip-1's first play() only settles 1.5s later, as a failure ("no playable
+    // source") — by then that load has been unloaded and a new one is playing.
+    await page.addInitScript(() => {
+      const realPlay = HTMLMediaElement.prototype.play;
+      let first = true;
+      HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+        if (first && this.closest('#clip-1')) {
+          first = false;
+          return new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new DOMException('late', 'NotSupportedError')), 1500),
+          );
+        }
+        return realPlay.call(this);
+      };
+    });
+    await page.goto('/');
+    await page.keyboard.press('ArrowDown');
+    await expectAligned(page, 'clip-1'); // autoplay: the slow, failing play()
+    await page.keyboard.press('End'); // clip-1 unloaded
+    await expectAligned(page, 'fin');
+    await page.keyboard.press('Home');
+    await expectAligned(page, 'inicio');
+    await page.keyboard.press('ArrowDown'); // clip-1 loaded and played again
+    await expectAligned(page, 'clip-1');
+    await page.waitForTimeout(1800); // the stale rejection has arrived
+    const clip1 = page.locator('#clip-1');
+    await expect(clip1.locator('.clip')).not.toHaveClass(/is-error/);
+    await expect(clip1.locator('[data-clip-error-text]')).toHaveText('');
+    await expect.poll(() => clipState(page).then((s) => s.playing)).toEqual(['clip-1']);
+  });
+});
+
+test.describe('intro clip', () => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 360, height: 640 },
+  ]) {
+    test(`fills the whole intro card, with its controls at the top, at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      const slot = (await page.locator('#inicio').boundingBox())!;
+      const card = (await page.locator('#inicio .intro').boundingBox())!;
+      expect(Math.abs(card.y - slot.y), 'the intro starts at the top of its card').toBeLessThanOrEqual(1);
+      expect(card.height).toBeGreaterThan(slot.height - 2);
+      // The clip's own box steps aside; its poster and video are the layers that fill the card.
+      for (const layer of ['.clip-poster', '.clip-video']) {
+        const box = (await page.locator(`#inicio ${layer}`).boundingBox())!;
+        expect(box.height, layer).toBeGreaterThan(card.height - 2);
+        expect(box.width, layer).toBeGreaterThan(card.width - 2);
+      }
+      const controls = (await page.locator('#inicio .clip-controls').boundingBox())!;
+      expect(controls.y - card.y).toBeLessThan(24);
+    });
+  }
 });
 
 test.describe('captions and transcript', () => {
@@ -452,12 +632,12 @@ test.describe('project card', () => {
     await page.route(`${LIVE_DEMO}/**`, (route) =>
       route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>demo</title><p>live site</p>' }),
     );
-    await page.goto('/el-break/');
-    const iframe = page.locator('#demo-el-break iframe');
+    await page.goto('/consejeria-escolar/');
+    const iframe = page.locator('#demo-consejeria-escolar iframe');
     await expect(iframe).not.toHaveAttribute('src', /.*/);
 
-    await page.getByRole('button', { name: /Probar el sitio de El Break/ }).click();
-    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck' });
+    await page.getByRole('button', { name: /Probar el sitio de Consejería Escolar/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Consejería Escolar' });
     await expect(dialog).toBeVisible();
     await expect(iframe).toHaveAttribute('src', LIVE_DEMO);
     await expect(iframe).toHaveAttribute('sandbox', /allow-scripts/);
@@ -492,6 +672,21 @@ test.describe('projects without an old site', () => {
 });
 
 test.describe('screenshots demo', () => {
+  test('El Break refuses framing, so it is shown as screenshots of the real site', async ({ page }) => {
+    await page.goto('/el-break/');
+    const card = page.locator('#el-break');
+    await expect(card.getByRole('link', { name: /Ver el sitio de El Break Food Truck/ })).toHaveAttribute(
+      'href',
+      'https://elbreak.vercel.app',
+    );
+    await card.getByRole('button', { name: /Ver el sitio de El Break Food Truck en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'El Break Food Truck' });
+    await expect(dialog.locator('iframe')).toHaveCount(0);
+    await expect(dialog.getByRole('img', { name: /Abierto ahora/ })).toBeVisible();
+    await dialog.getByRole('button', { name: /Tableta/ }).click();
+    await expect(dialog.getByRole('img', { name: /En una tableta/ })).toBeVisible();
+  });
+
   test('swaps real captures per device, with no iframe', async ({ page }) => {
     await page.goto('/melanie-creations/');
     await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
@@ -650,9 +845,11 @@ test.describe('security headers', () => {
     const csp = response?.headers()['content-security-policy'] ?? '';
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).not.toContain('unsafe-inline');
-    // Only the sites shown live may be framed; Melanie's refuses framing and is shown as screenshots.
+    // Only the sites shown live may be framed; Melanie's and El Break's refuse
+    // framing and are shown as screenshots.
     expect(csp).toMatch(/frame-src [^;]*https:\/\/consejeria-escolar\.vercel\.app/);
     expect(csp).not.toContain('melaniecreations.net');
+    expect(csp).not.toContain('elbreak');
     // The inline tab script and start script ran under the policy:
     await expect(page.locator('html')).toHaveAttribute('data-tab', 'local');
     expect(await visibleSlugs(page)).toEqual(['el-break', 'consejeria-escolar', 'fin']);

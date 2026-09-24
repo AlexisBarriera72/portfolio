@@ -35,8 +35,11 @@ jobs:
       - run: npm ci
       # Type check + unit tests + build, placeholders allowed.
       - run: npm run build:draft
-      - run: npx playwright install --with-deps chromium
+      # Chromium and WebKit (Safari's engine): the browser tests run in both.
+      - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:e2e
+        env:
+          PW_WEBKIT: '1'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -42,7 +42,13 @@ const live = card.demo.mode === 'live';
 const first = DEVICE_PRESETS[0];
 ---
 
-<dialog id={id} class="demo" aria-labelledby={titleId} data-demo>
+<dialog
+  id={id}
+  class="demo"
+  aria-labelledby={titleId}
+  data-demo
+  data-demo-reason={card.demo.mode === 'live' ? undefined : card.demo.reason}
+>
   <div class="demo-bar">
     <h3 id={titleId} class="demo-title">{card.client.name}</h3>
     <form method="dialog">

@@ -3,7 +3,23 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createStaticServer, resolveRequest } from './serve.mjs';
+import { createStaticServer, resolveRequest, servedHeader } from './serve.mjs';
+
+const CSP =
+  "default-src 'self'; script-src 'self' 'sha256-abc='; frame-ancestors 'none'; upgrade-insecure-requests";
+
+describe('servedHeader', () => {
+  it('serves the CSP as built, less upgrade-insecure-requests (plain http on loopback)', () => {
+    expect(servedHeader('Content-Security-Policy', CSP)).toBe(
+      "default-src 'self'; script-src 'self' 'sha256-abc='; frame-ancestors 'none'",
+    );
+  });
+
+  it('leaves every other header alone', () => {
+    expect(servedHeader('X-Frame-Options', 'DENY')).toBe('DENY');
+    expect(servedHeader('Cache-Control', 'upgrade-insecure-requests')).toBe('upgrade-insecure-requests');
+  });
+});
 
 describe('resolveRequest', () => {
   const root = join(tmpdir(), 'serve-path-tests', 'dist');
@@ -36,6 +52,7 @@ describe('createStaticServer', () => {
     mkdirSync(join(dir, 'dist-private'));
     writeFileSync(join(dir, 'dist', 'index.html'), '<p>home</p>');
     writeFileSync(join(dir, 'dist', '404.html'), '<p>missing</p>');
+    writeFileSync(join(dir, 'dist', '_headers'), `/*\n  Content-Security-Policy: ${CSP}\n  X-Frame-Options: DENY\n`);
     writeFileSync(join(dir, 'dist-private', 'example.txt'), 'secret');
     base = dir;
     return createStaticServer(join(dir, 'dist'));
@@ -57,6 +74,14 @@ describe('createStaticServer', () => {
   it('survives malformed encoding and keeps serving', async () => {
     expect((await fetch(`${url}/%E0%A4%A`)).status).toBe(400);
     expect((await fetch(`${url}/`)).status).toBe(200);
+  });
+
+  it('applies _headers, with the CSP as servedHeader gives it', async () => {
+    const res = await fetch(`${url}/`);
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('content-security-policy')).toBe(servedHeader('Content-Security-Policy', CSP));
+    expect(res.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+    expect(res.headers.get('content-security-policy')).not.toContain('upgrade-insecure-requests');
   });
 
   it('serves the 404 page with a 404 status', async () => {

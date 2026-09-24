@@ -24,18 +24,16 @@
   --bar-h: 3.5rem;
   /* The phone-shaped column on desktop. */
   --col-w: 27.5rem;
+  /* The floating WhatsApp button: size, distance from the bottom, and the
+     strip every card keeps clear for it. */
+  --fab-size: 3.5rem;
+  --fab-gap: 1rem;
+  --fab-room: calc(var(--fab-size) + var(--fab-gap) + 0.5rem);
   color-scheme: light;
 }
 
-/* ---------------------------------------------------------------- scrolling
- * The page itself scrolls (not an inner box): the phone's address bar can
- * collapse for more room, lazy images load ahead of time, and Space/PageDown
- * work without clicking first. `proximity` rather than `mandatory` so a card
- * taller than the screen can be read to the end without being yanked back.
- */
+/* ---------------------------------------------------------------- scrolling */
 html {
-  scroll-snap-type: y proximity;
-  scroll-padding-top: var(--bar-h);
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -43,13 +41,7 @@ html {
   text-size-adjust: 100%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
-/* No scrolling behind an open demo dialog. */
+/* No scrolling behind an open dialog. */
 html:has(dialog[open]) {
   overflow: hidden;
 }
@@ -71,16 +63,74 @@ body {
 }
 
 /*
- * A card fills what is on screen right now (dvh, so it grows when the phone's
- * address bar slides away) minus the bar; vh first for older browsers. It may
- * grow taller — long copy, a short screen, enlarged text: proximity snapping
- * lets touch readers scroll through it, and the keys and desktop arrows read
- * through it before moving on (src/scripts/feed.ts).
+ * Feed pages: the document itself never scrolls. The page is exactly the
+ * visible viewport — the bar, then the feed filling the rest — and the feed
+ * list is the one scroller. It spans the full width (so the wheel works over
+ * the desktop margins too); the bar and the cards sit in the phone-wide column.
+ */
+html.feed-page,
+.feed-page body {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* clip, where supported: not even a script can scroll the page itself. */
+  overflow: clip;
+  overscroll-behavior: none;
+}
+.feed-page .page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  background: transparent;
+}
+.feed-page main,
+.feed-page .feed-panel {
+  min-height: 0;
+  height: 100%;
+}
+.feed-page .topbar {
+  width: 100%;
+  max-width: var(--col-w);
+  margin-inline: auto;
+}
+
+/*
+ * The feed: one card at a time. `mandatory` snapping means that when a scroll
+ * or swipe ends, the list always comes to rest with exactly one card filling
+ * it — never halfway between two. The browser keeps its own physics.
+ */
+.feed {
+  /* Positioned, so absolutely placed things inside cards (screen-reader-only
+     text) stay inside the feed instead of stretching the page. */
+  position: relative;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feed {
+    scroll-behavior: smooth;
+  }
+}
+
+/*
+ * A card is exactly one panel: the feed's full height (border included), in
+ * the phone-wide column. Its content is designed to fit at normal text size
+ * (e2e "one screen per card"); if enlarged text makes it taller, the card's
+ * own box scrolls, so nothing is ever cut off.
  */
 .card {
   display: flex;
-  min-height: calc(100vh - var(--bar-h));
-  min-height: calc(100dvh - var(--bar-h));
+  height: 100%;
+  max-width: var(--col-w);
+  margin-inline: auto;
+  background: var(--color-paper);
   scroll-snap-align: start;
   scroll-snap-stop: always;
   border-bottom: 1px solid var(--color-line);
@@ -99,7 +149,13 @@ body {
   flex: 1;
   flex-direction: column;
   gap: 0.9rem;
-  padding: 1.25rem 1.25rem 5.25rem; /* bottom room for the WhatsApp button */
+  min-width: 0;
+  /* Only ever scrolls with enlarged text or a phone on its side. */
+  overflow-y: auto;
+  /* Bottom room for the WhatsApp button: its height, its offset and a little
+     air, plus the phone's safe areas. */
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right))
+    calc(var(--fab-room) + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
   outline-offset: -3px;
 }
 
@@ -134,8 +190,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  height: var(--bar-h);
-  padding-inline: 0.5rem;
+  /* The bar's own height, plus the status bar area on a notched phone. */
+  height: calc(var(--bar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(0.5rem, env(safe-area-inset-right)) 0 max(0.5rem, env(safe-area-inset-left));
   background: rgb(255 255 255 / 0.94);
   border-bottom: 1px solid var(--color-line);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -278,11 +335,11 @@ html:not([data-tab]) .tabs {
   position: fixed;
   z-index: 15;
   right: max(1rem, calc((100vw - var(--col-w)) / 2 + 1rem));
-  bottom: max(1rem, env(safe-area-inset-bottom));
+  bottom: calc(var(--fab-gap) + env(safe-area-inset-bottom));
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
+  width: var(--fab-size);
+  height: var(--fab-size);
   border-radius: 999px;
   background: var(--color-whatsapp);
   color: var(--color-whatsapp-ink);
@@ -305,27 +362,52 @@ html:not([data-tab]) .tabs {
   text-align: center;
 }
 
-/* Intro: the clip fills the card, the words sit on a gradient at the bottom. */
-.card-intro {
+/*
+ * Intro: the clip fills the card, the words sit on a gradient at the bottom.
+ * The intro is at least the card's height and grows with its words (a phone
+ * on its side, large text, the transcript open): the card then scrolls inside
+ * itself, so everything stays reachable.
+ *
+ * Its rows, top to bottom: the video's buttons, the message if the video
+ * fails, free room, the words. So the buttons and the message never sit on
+ * top of the words, however little room there is. The clip's own box steps
+ * aside (display: contents): its poster and video fill the whole intro behind
+ * everything, each cropped to its own box.
+ */
+.card-body.card-intro {
+  /* Two classes, so the tighter padding on short screens (below) can't add a strip above it. */
   padding: 0;
 }
 .intro {
   position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  justify-content: flex-end;
-  overflow: hidden;
+  display: grid;
+  flex: 1 0 auto;
+  grid-template-rows: auto auto 1fr auto;
   background: #0f172a;
   color: #fff;
 }
-/* Two classes, so it wins over the generic .clip (position: relative) below. */
-.clip.intro-clip {
-  position: absolute;
-  inset: 0;
+/* Two classes, so these win over the generic .clip rules below. */
+.clip.intro-clip,
+.intro-clip picture {
+  display: contents;
+}
+.intro-clip .clip-controls {
+  position: relative;
+  grid-row: 1;
+  justify-self: end;
+  top: auto;
+  right: auto;
+  margin: 0.75rem 0.75rem 0;
+}
+.intro-clip .clip-error {
+  position: relative;
+  grid-row: 2;
+  inset: auto;
+  margin: 0.5rem 0.75rem 0;
 }
 .intro-copy {
   position: relative;
+  grid-row: 4;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -509,15 +591,22 @@ html:not([data-tab]) .tabs {
 }
 
 /* --------------------------------------------------------- before / after */
+/*
+ * The picture takes what the card has left: up to 22rem, less on a shorter
+ * panel (never under 8rem), so the words and buttons around it always fit.
+ * The figure holds only the picture, so nothing in it can be squeezed out.
+ */
 .compare {
   display: flex;
+  flex: 0 1 22rem;
   flex-direction: column;
-  gap: 0.5rem;
+  min-height: 8rem;
 }
 .compare-frame {
   --pos: 50%;
   position: relative;
-  height: clamp(11rem, 31svh, 22rem);
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: 1rem;
@@ -590,19 +679,27 @@ html:not([data-tab]) .tabs {
 .compare-single {
   cursor: default;
 }
-.compare-caption {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+.compare-note {
   font-size: 0.925rem;
   color: var(--color-muted);
 }
+/* Sits on the picture, so it costs no line of its own. */
 .compare-hint {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 50%;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-weight: 600;
-  color: var(--color-accent);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.75);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 /* ---------------------------------------------------------------- outcomes */
@@ -649,32 +746,45 @@ html:not([data-tab]) .tabs {
 .tiers {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
+/* One short row per plan, the whole row a button that opens its full list:
+   name (and badge) with "Qué incluye ›" on the right, the price below. */
 .tier {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name more'
+    'price price';
+  align-items: center;
+  gap: 0 0.75rem;
+  width: 100%;
+  padding: 0.5rem 0.9rem;
   border: 1.5px solid var(--color-line);
   border-radius: 1rem;
+  background: var(--color-paper);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tier:hover {
+  border-color: var(--color-accent);
 }
 .tier-featured {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
 }
-.tier-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
 .tier-name {
-  font-size: 1.1rem;
+  grid-area: name;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 .tier-badge {
-  padding: 0.15rem 0.55rem;
+  padding: 0.1rem 0.5rem;
   border-radius: 999px;
   background: var(--color-accent);
   color: #fff;
@@ -682,12 +792,14 @@ html:not([data-tab]) .tabs {
   font-weight: 700;
 }
 .tier-price {
+  grid-area: price;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem;
+  gap: 0 0.35rem;
 }
 .tier-price strong {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
 }
 .tier-from,
@@ -695,9 +807,56 @@ html:not([data-tab]) .tabs {
   font-size: 0.9rem;
   color: var(--color-muted);
 }
-.tier-includes {
-  gap: 0.15rem;
+.tier-more {
+  grid-area: more;
   font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+  white-space: nowrap;
+}
+.tier-includes {
+  gap: 0.35rem;
+}
+
+/* A panel opened on purpose (a plan's full list). Its content scrolls inside
+   it, so enlarged text never pushes the feed card past the screen. */
+.panel {
+  width: min(26rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 1.25rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 20px 50px -20px rgb(15 23 42 / 0.5);
+}
+.panel[open] {
+  display: flex;
+  flex-direction: column;
+}
+.panel::backdrop {
+  background: rgb(15 23 42 / 0.6);
+}
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.6rem 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.panel-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
 }
 
 /* ---------------------------------------------------------------- inclusions */
@@ -729,10 +888,14 @@ html:not([data-tab]) .tabs {
 }
 
 /* -------------------------------------------------------------------- about */
+/* Like the before/after picture: the space the words leave, up to 26rem. */
+.card-about picture {
+  display: contents;
+}
 .portrait {
+  flex: 0 1 26rem;
   width: 100%;
-  max-height: 42svh;
-  aspect-ratio: 4 / 5;
+  min-height: 7rem;
   border-radius: 1.25rem;
   object-fit: cover;
 }
@@ -981,6 +1144,63 @@ html:not([data-tab]) .tabs {
   border-radius: 0.75rem;
 }
 
+/* ------------------------------------------------------------ short screens
+ * Most phones, once the browser's own bars are counted: every card must fit
+ * from 640px tall at normal text size (e2e "one screen per card" sweeps the
+ * sizes). Up to 800px the WhatsApp button lives in the top bar, so no card
+ * keeps a strip clear for it, and headings and spacing are tighter — body
+ * text stays at 15px or more. Pictures shrink with the panel on their own
+ * (above). Enlarged text, or a phone on its side, can still need more; the
+ * card then scrolls inside itself.
+ */
+@media (max-height: 800px) {
+  /* The WhatsApp button moves from the bottom corner into the top bar, so no
+     card has to keep a strip clear for it. Still one tap away, everywhere. */
+  :root {
+    --fab-size: 2.5rem;
+    --fab-room: 0.5rem;
+  }
+  .topbar {
+    padding-right: calc(1rem + var(--fab-size) + env(safe-area-inset-right));
+  }
+  .fab {
+    top: calc(env(safe-area-inset-top) + (var(--bar-h) - var(--fab-size)) / 2);
+    bottom: auto;
+    right: max(0.5rem, calc((100vw - var(--col-w)) / 2 + 0.5rem));
+    z-index: 25;
+    box-shadow: none;
+  }
+  .fab svg {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .card-body {
+    gap: 0.6rem;
+    padding-top: 0.9rem;
+  }
+  .card-heading {
+    font-size: 1.4rem;
+  }
+  /* No corner button to keep clear of here. */
+  .intro-copy {
+    padding: 2rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+  }
+  .prose-card {
+    gap: 0.6rem;
+    font-size: 1rem;
+  }
+  .btn {
+    padding-inline: 1rem;
+    font-size: 1rem;
+  }
+  .actions .btn {
+    gap: 0.3rem;
+    padding-inline: 0.6rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+}
+
 /* -------------------------------------------------------------------- 404 */
 .not-found {
   display: flex;
@@ -1011,6 +1231,14 @@ html:not([data-tab]) .tabs {
     box-shadow:
       0 0 0 1px var(--color-line),
       0 40px 90px -30px rgb(15 23 42 / 0.3);
+  }
+  /* On feed pages the column is the bar and the cards (the page is full width). */
+  .feed-page .page {
+    box-shadow: none;
+  }
+  .feed-page .topbar,
+  .feed-page .card {
+    box-shadow: 0 0 0 1px var(--color-line);
   }
   .feed-arrows {
     position: fixed;

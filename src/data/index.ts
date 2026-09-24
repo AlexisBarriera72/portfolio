@@ -137,9 +137,8 @@ export function draftGaps(): { missing: string[]; placeholderDemos: string[] } {
     for (const ref of mediaOf(card)) {
       if (ref.kind !== 'image' && publicFileSize(ref.src) === undefined) files.add(ref.src);
     }
-    if (card.type === 'project' && card.demo.mode === 'live' && isPlaceholder(card.liveUrl)) {
-      demos.add(new URL(card.liveUrl).origin);
-    }
+    // A project's address is linked, and framed when its demo is live.
+    if (card.type === 'project' && isPlaceholder(card.liveUrl)) demos.add(new URL(card.liveUrl).origin);
   }
   return { missing: [...files].sort(), placeholderDemos: [...demos].sort() };
 }

@@ -39,8 +39,9 @@ export const test = base.extend<{ guard: Guard }>({
       });
       page.on('requestfailed', (req) => {
         const reason = req.failure()?.errorText ?? '';
-        // Cancelled by the page itself (a paused video, an iframe set to about:blank).
-        if (reason.includes('ERR_ABORTED')) return;
+        // Cancelled by the page itself (a paused or unloaded video, an iframe set
+        // to about:blank): Chromium says net::ERR_ABORTED, WebKit this.
+        if (reason.includes('ERR_ABORTED') || reason === 'Load request cancelled') return;
         if (!isAllowed(req.url())) problems.push(`failed ${req.url()} (${reason})`);
       });
       page.on('console', (msg) => {
