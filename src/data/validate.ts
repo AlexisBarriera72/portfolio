@@ -159,7 +159,7 @@ export function validate(
   if (ends.length !== 1) problems.push(`expected exactly 1 end card, found ${ends.length}`);
   else if (cards.at(-1)?.type !== 'end') problems.push('the end card must have the highest order');
 
-  // Intro and end cards sit in every tab, so they cannot be what fills one.
+  // The intro opens a tab and the end card closes every one: neither is what fills a tab.
   for (const tab of FEED_TABS) {
     const own = cards.filter((c) => c.tabs.includes(tab) && c.type !== 'intro' && c.type !== 'end');
     if (own.length === 0) {

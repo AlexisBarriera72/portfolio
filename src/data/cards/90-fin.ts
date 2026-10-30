@@ -1,13 +1,14 @@
-import type { EndCard } from '../types';
+import { FEED_TABS, type EndCard } from '../types';
 
 /**
  * The feed ends here and says so. It does not loop back to the top on its own —
  * a silent loop makes a visitor feel lost, and they leave instead of writing.
+ * Every tab ends here, a tab added later included.
  */
 const card: EndCard = {
   type: 'end',
   slug: 'fin',
-  tabs: ['para-ti', 'local', 'precios', 'sobre-mi', 'contacto'],
+  tabs: [...FEED_TABS],
   order: 90,
 
   heading: {

@@ -25,10 +25,12 @@
   /* The phone-shaped column on desktop. */
   --col-w: 27.5rem;
   /* The floating WhatsApp button: size, distance from the bottom, and the
-     strip every card keeps clear for it. */
+     strip every card keeps clear for it — `--fab-clear` is that strip with
+     the phone's bottom safe area added, which raises the button as much. */
   --fab-size: 3.5rem;
   --fab-gap: 1rem;
   --fab-room: calc(var(--fab-size) + var(--fab-gap) + 0.5rem);
+  --fab-clear: calc(var(--fab-room) + env(safe-area-inset-bottom));
   color-scheme: light;
 }
 
@@ -154,8 +156,7 @@ html.feed-page,
   overflow-y: auto;
   /* Bottom room for the WhatsApp button: its height, its offset and a little
      air, plus the phone's safe areas. */
-  padding: 1.25rem max(1.25rem, env(safe-area-inset-right))
-    calc(var(--fab-room) + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right)) var(--fab-clear) max(1.25rem, env(safe-area-inset-left));
   outline-offset: -3px;
 }
 
@@ -437,7 +438,9 @@ html:not([data-tab]) .tabs {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 4rem 1.25rem 6rem;
+  /* Like every card, the words keep the WhatsApp button's strip clear — the
+     phone's bottom safe area included — with a little more air. */
+  padding: 4rem 1.25rem calc(var(--fab-clear) + 1rem);
   background: linear-gradient(to top, rgb(15 23 42 / 0.92) 55%, rgb(15 23 42 / 0));
 }
 .intro-name {
@@ -886,12 +889,10 @@ html:not([data-tab]) .tabs {
   color: var(--color-accent-strong);
   white-space: nowrap;
 }
-.tier-includes {
-  gap: 0.35rem;
-}
 
-/* A panel opened on purpose (a plan's full list). Its content scrolls inside
-   it, so enlarged text never pushes the feed card past the screen. */
+/* A panel opened on purpose (a plan's full list, what an item of "Qué
+   incluye" means). Its content scrolls inside it, so enlarged text never
+   pushes the feed card past the screen. */
 .panel {
   width: min(26rem, calc(100% - 2rem));
   max-height: calc(100% - 2rem);

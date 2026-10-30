@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * End-to-end tests against the built site (run `npm run build:draft` first).
  * PW_CHROMIUM lets a machine with a preinstalled Chromium use it instead of
- * downloading one; CI installs its own with `npx playwright install chromium`.
+ * downloading one; CI installs its own, and WebKit, with
+ * `npx playwright install --with-deps chromium webkit`.
  */
 const executablePath = process.env.PW_CHROMIUM || undefined;
 
@@ -43,7 +44,7 @@ export default defineConfig({
       use: { viewport: { width: 1440, height: 900 } },
     },
     // WebKit (Safari's engine), when installed: CI sets PW_WEBKIT=1 after
-    // `npx playwright install webkit`. browserName is set explicitly so these
+    // installing it (see above). browserName is set explicitly so these
     // projects can never quietly run Chromium. Emulation only — not a real
     // iPhone's touch or toolbars (see "Test on a real phone" in the README).
     ...(process.env.PW_WEBKIT

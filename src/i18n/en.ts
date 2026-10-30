@@ -21,7 +21,6 @@ export const en: UIStrings = {
     feedLabel: 'Work and services',
     next: 'Next',
     previous: 'Previous',
-    backToTop: 'Back to the top',
     position: 'Card {index} of {total}',
     skipToContent: 'Skip to content',
     swipeHint: 'Swipe up',
@@ -44,7 +43,7 @@ export const en: UIStrings = {
     devices: {
       phone: 'Phone',
       tablet: 'Tablet',
-      desktop: 'Desktop',
+      desktop: 'Computer',
     },
     visitSite: (client) => `Visit ${client}’s website`,
     visitSiteShort: 'Visit site',

@@ -3,8 +3,9 @@ import type { ProjectCard } from '../types';
 /**
  * COPY THIS FILE to add a client.
  *
- *   1. cp _template.project.ts 20-nombre-del-cliente.ts
- *      The number in the file name must equal `order` below.
+ *   1. cp _template.project.ts 25-nombre-del-cliente.ts
+ *      The number in the file name must equal `order` below, and no other
+ *      card may have it (the file names in this folder show which are taken).
  *   2. Fill every TODO. `npm run build` type-checks first (a missing field
  *      fails), then refuses duplicate slugs, dead links, http:// URLs, and —
  *      for the real production build — any leftover TODO or missing image.
@@ -26,8 +27,8 @@ const card: ProjectCard = {
    */
   tabs: ['para-ti', 'local'],
 
-  /** Gaps of 10 so you can slot a card between two others later. Must match the file name. */
-  order: 20,
+  /** Leave gaps so you can slot a card between two others later. Must match the file name. */
+  order: 25,
 
   heading: {
     es: 'TODO Nombre del negocio',
@@ -37,7 +38,7 @@ const card: ProjectCard = {
   client: {
     name: 'TODO Nombre del negocio',
     kind: { es: 'TODO Panadería', en: 'TODO Bakery' },
-    /** Municipio. Drives the Local tab and the "Cliente en X" line. */
+    /** Municipio. Drives the Local tab and the line above the heading ("Food truck · Yauco"). */
     city: 'TODO Ponce',
     // Only include `owner` once you have the photo AND their permission.
     // owner: {
@@ -55,7 +56,8 @@ const card: ProjectCard = {
    *
    * No old site? Leave `before` out and say what they had in `note`
    * ("Antes solo tenía Instagram"). `npm run capture -- <url> <slug>` takes
-   * the "after" (despues.webp) and the three device screenshots for you.
+   * the three device screenshots for you; its phone.webp is the "after", so
+   * take the "before" the same way (390×844 at 2×) to get the same size.
    */
   beforeAfter: {
     before: {
@@ -66,7 +68,7 @@ const card: ProjectCard = {
       },
     },
     after: {
-      src: 'TODO-slug/despues.webp',
+      src: 'TODO-slug/phone.webp',
       alt: {
         es: 'TODO: describe qué se ve en la página nueva.',
         en: 'TODO: describe what the new page shows.',
@@ -81,11 +83,12 @@ const card: ProjectCard = {
   /**
    * Check whether the site can be framed BEFORE choosing 'live':
    *   curl -sI https://elsitio.com | grep -iE '^x-frame-options|frame-ancestors'
-   * Any output means you need mode 'recorded' — a blocked iframe renders blank
+   * Any output means it can't be shown live — a blocked iframe renders blank
    * with no error you can catch in JS. (Other CSP rules don't matter; only
    * frame-ancestors controls framing.) A live demo frames `liveUrl` below.
    *
-   * If it can't be framed, show screenshots at each size instead:
+   * If it can't be framed, show screenshots at each size instead (or, for a
+   * screen recording, mode 'recorded' with a clip):
    *   demo: {
    *     mode: 'screenshots',
    *     reason: 'frame-ancestors',

@@ -32,7 +32,6 @@ export interface UIStrings {
     feedLabel: string;
     next: string;
     previous: string;
-    backToTop: string;
     /**
      * Template: "{index}" and "{total}". "Tarjeta 3 de 9" — read out after
      * keyboard or button navigation. Filled in the browser, since the total

@@ -23,12 +23,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
 import sharp from 'sharp';
-
-const DEVICES = [
-  { id: 'phone', width: 390, height: 844, mobile: true },
-  { id: 'tablet', width: 820, height: 1180, mobile: true },
-  { id: 'desktop', width: 1280, height: 800, mobile: false },
-];
+import { DEVICES } from './capture-devices.mjs';
 
 const args = process.argv.slice(2);
 /** Removes `--name value` from args and returns the value. */

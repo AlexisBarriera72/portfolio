@@ -294,6 +294,54 @@ test.describe('everything on a card can be read', () => {
   }
 });
 
+test.describe('the strip kept clear for the WhatsApp button', () => {
+  // Over 800px tall the button sits in the bottom corner, raised by the
+  // phone's bottom safe area (an iPhone's home indicator, emulated here), and
+  // every card keeps a strip that tall clear of words and buttons.
+  test('no card puts words or buttons where the button is, with a 34px bottom safe area', async ({
+    page,
+    browserName,
+    isMobile,
+  }) => {
+    test.skip(browserName !== 'chromium' || !isMobile, 'safe areas are emulated over CDP: Chromium phone only');
+    // Fails, rather than skips, if a Chromium update drops the emulation: the
+    // safe-area padding would otherwise go unchecked without anyone noticing.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, right: 0, bottom: 34 } });
+    // The intro with its player and the video's message showing. (With its
+    // transcript open the intro is taller than the card and scrolls inside
+    // itself, like any card with enlarged text: then nothing is at rest.)
+    await asIfIntroVideoExisted(page);
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto('/');
+    const inset = await page.evaluate(() => {
+      const probe = document.body.appendChild(document.createElement('div'));
+      probe.style.cssText = 'position: fixed; height: env(safe-area-inset-bottom, 0px)';
+      const { height } = probe.getBoundingClientRect();
+      probe.remove();
+      return height;
+    });
+    expect(inset, 'the page sees the emulated safe area').toBe(34);
+    const intrusions = await page.evaluate(() => {
+      const button = document.querySelector('.fab')!.getBoundingClientRect();
+      const scroller = window.__feedScroller();
+      const found: string[] = [];
+      for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+        if (getComputedStyle(card).display === 'none') continue;
+        scroller.scrollTo({ top: scroller.scrollTop + card.getBoundingClientRect().top - window.__feedView().top, behavior: 'instant' });
+        // What a reader reads or taps: the same elements as unreachable() checks.
+        for (const el of card.querySelectorAll<HTMLElement>('h2, h3, h4, p, li, blockquote, figcaption, summary, a[href], button')) {
+          if (el.closest('dialog') || !el.checkVisibility()) continue;
+          const over = el.getBoundingClientRect().bottom - button.top;
+          if (over > 1) found.push(`${card.id}: <${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().slice(0, 30)}" +${Math.round(over)}px`);
+        }
+      }
+      return found;
+    });
+    expect(intrusions).toEqual([]);
+  });
+});
+
 test.describe('project buttons', () => {
   for (const path of ['/', '/en/']) {
     test(`keep their label on one line and whole at 360×640 on ${path}`, async ({ page }) => {
@@ -880,6 +928,19 @@ test.describe('screenshots demo', () => {
       expect(box!.y + box!.height, device).toBeLessThanOrEqual(area!.y + area!.height + 0.5);
       expect(box!.x + box!.width, device).toBeLessThanOrEqual(area!.x + area!.width + 0.5);
     }
+  });
+
+  test('in English the buttons name the same devices the button and the pictures do', async ({ page }) => {
+    await page.goto('/en/melanie-creations/');
+    await page.getByRole('button', { name: 'See Melanie Creations’s site on a phone, tablet and computer' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    expect((await dialog.locator('.demo-device').allTextContents()).map((t) => t.trim())).toEqual([
+      'Phone',
+      'Tablet',
+      'Computer',
+    ]);
+    await dialog.getByRole('button', { name: 'Computer' }).click();
+    await expect(dialog.getByRole('img', { name: /^On a computer/ })).toBeVisible();
   });
 });
 

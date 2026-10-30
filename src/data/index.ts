@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { localePath } from '../i18n';
 import { resolveImage } from './media';
 import { site } from './site';
-import type { Card, CardType, Clip, FeedTab, Locale } from './types';
+import type { Card, CardType, Clip, Locale } from './types';
 import { LOCALES } from './types';
 import { type CardEntry, isPlaceholder, mediaOf, validate } from './validate';
 
@@ -97,11 +97,6 @@ if (problems.length > 0) {
 
 export const cards: Card[] = entries.map((e) => e.card);
 
-/** Cards in one tab, already ordered. */
-export function cardsForTab(tab: FeedTab): Card[] {
-  return cards.filter((card) => card.tabs.includes(tab));
-}
-
 export function getCard(slug: string): Card | undefined {
   return cards.find((card) => card.slug === slug);
 }
@@ -151,8 +146,3 @@ export function draftGaps(): { missing: string[]; placeholderDemos: string[] } {
 export function clipReady(clip: Clip): boolean {
   return publicFileSize(clip.webm) !== undefined || publicFileSize(clip.mp4) !== undefined;
 }
-
-/** Municipios that actually have a project, for the "Local" tab copy. */
-export const clientCities: string[] = [
-  ...new Set(cards.flatMap((c) => (c.type === 'project' ? [c.client.city] : []))),
-].sort();
