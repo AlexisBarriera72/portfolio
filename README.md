@@ -21,8 +21,9 @@ Cloudflare.
 ## Adding a project
 
 1. Copy `src/data/cards/_template.project.ts` to a new file named after its
-   position, e.g. `src/data/cards/20-panaderia-rosa.ts`. The number in the
-   file name must equal `order` inside it (gaps of 10 leave room to insert).
+   position, e.g. `src/data/cards/25-panaderia-rosa.ts`. The number in the
+   file name must equal `order` inside it and be one no other card has (the
+   file names show which are taken); gaps leave room to insert.
 2. Fill every `TODO`. Write outcomes the owner would say to a friend
    ("Ahora toma órdenes por internet"), never tech words.
 3. Take the screenshots of the new site:
@@ -65,6 +66,13 @@ Today it is:
   buttons.
 
 Done: the WhatsApp and phone number (787-344-4919) and your portrait.
+
+The build can't tell whether these are yours yet — each is marked
+`TODO(alexis)` in a comment, not in the text, so nothing fails: the plan
+prices (`src/data/cards/30-precios.ts`), the "Sobre mí" text
+(`50-sobre-mi.ts`) and your name as clients should read it
+(`src/data/site.ts` → `person.name`, which search engines get as the
+business's founder).
 
 Also worth doing:
 
@@ -120,7 +128,8 @@ separate Workers so a preview can never replace the real site:
   purpose and nothing is deployed — the log lists what is left. After a
   deploy it checks the real domain (pages, contact links, share images,
   media, demos, the video playing) and measures loading speed: 3 runs on a
-  simulated phone, median largest paint under 2 seconds (`lighthouserc.json`).
+  simulated phone, median largest paint under 2 seconds and layout shift
+  under 0.1 (`lighthouserc.json`).
 
 One-time setup:
 
