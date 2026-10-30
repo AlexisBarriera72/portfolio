@@ -21,7 +21,6 @@ export const en: UIStrings = {
     feedLabel: 'Work and services',
     next: 'Next',
     previous: 'Previous',
-    backToTop: 'Back to the top',
     position: 'Card {index} of {total}',
     skipToContent: 'Skip to content',
     swipeHint: 'Swipe up',

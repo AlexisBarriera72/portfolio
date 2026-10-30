@@ -19,7 +19,6 @@ export const es: UIStrings = {
     feedLabel: 'Trabajos y servicios',
     next: 'Siguiente',
     previous: 'Anterior',
-    backToTop: 'Volver al principio',
     position: 'Tarjeta {index} de {total}',
     skipToContent: 'Ir al contenido',
     swipeHint: 'Desliza hacia arriba',

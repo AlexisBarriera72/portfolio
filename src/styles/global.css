@@ -886,12 +886,10 @@ html:not([data-tab]) .tabs {
   color: var(--color-accent-strong);
   white-space: nowrap;
 }
-.tier-includes {
-  gap: 0.35rem;
-}
 
-/* A panel opened on purpose (a plan's full list). Its content scrolls inside
-   it, so enlarged text never pushes the feed card past the screen. */
+/* A panel opened on purpose (a plan's full list, what an item of "Qué
+   incluye" means). Its content scrolls inside it, so enlarged text never
+   pushes the feed card past the screen. */
 .panel {
   width: min(26rem, calc(100% - 2rem));
   max-height: calc(100% - 2rem);

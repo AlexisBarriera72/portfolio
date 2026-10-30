@@ -1,5 +1,5 @@
 import { site } from '../data/site';
-import { DEFAULT_LOCALE, LOCALES, type L10n, type Locale } from '../data/types';
+import { DEFAULT_LOCALE, LOCALES, type Locale } from '../data/types';
 import { en } from './en';
 import { es } from './es';
 import type { UIStrings } from './types';
@@ -12,11 +12,6 @@ const dictionaries: Record<Locale, UIStrings> = { es, en };
 /** UI chrome for a locale. */
 export function t(locale: Locale): UIStrings {
   return dictionaries[locale];
-}
-
-/** Read one locale out of a piece of content. */
-export function pick<T>(value: L10n<T>, locale: Locale): T {
-  return value[locale];
 }
 
 /**

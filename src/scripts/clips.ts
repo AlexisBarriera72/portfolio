@@ -56,10 +56,10 @@ function applyCaptions(clip: HTMLElement): void {
   for (const track of video.textTracks) track.mode = on ? 'showing' : 'hidden';
 }
 
-/** Attach the real sources and start fetching. Safe to call repeatedly. */
 /** A draft's clip whose video isn't added yet (Clip.astro): there is nothing to load or play. */
 const pending = (clip: HTMLElement) => clip.hasAttribute('data-clip-pending');
 
+/** Attach the real sources and start fetching. Safe to call repeatedly. */
 export function loadClip(clip: HTMLElement): void {
   const video = videoOf(clip);
   if (!video || clip.dataset.loaded || pending(clip)) return;
