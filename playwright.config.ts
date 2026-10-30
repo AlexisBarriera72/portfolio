@@ -44,7 +44,7 @@ export default defineConfig({
       use: { viewport: { width: 1440, height: 900 } },
     },
     // WebKit (Safari's engine), when installed: CI sets PW_WEBKIT=1 after
-    // `npx playwright install webkit`. browserName is set explicitly so these
+    // installing it (see above). browserName is set explicitly so these
     // projects can never quietly run Chromium. Emulation only — not a real
     // iPhone's touch or toolbars (see "Test on a real phone" in the README).
     ...(process.env.PW_WEBKIT

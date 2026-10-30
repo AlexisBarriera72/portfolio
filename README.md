@@ -70,9 +70,12 @@ Done: the WhatsApp and phone number (787-344-4919) and your portrait.
 The build can't tell whether these are yours yet — each is marked
 `TODO(alexis)` in a comment, not in the text, so nothing fails: the plan
 prices (`src/data/cards/30-precios.ts`), the "Sobre mí" text
-(`50-sobre-mi.ts`) and your name as clients should read it
+(`50-sobre-mi.ts`), your name as clients should read it
 (`src/data/site.ts` → `person.name`, which search engines get as the
-business's founder).
+business's founder) and the intro's transcript (`00-intro.ts` →
+`transcript`), which has to say what the real video says. Two more TODOs
+are optional: a real contact form (`60-contacto.ts`) and El Break's owner
+photo, with their permission (`10-el-break.ts`).
 
 Also worth doing:
 

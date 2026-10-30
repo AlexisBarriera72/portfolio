@@ -304,15 +304,13 @@ test.describe('the strip kept clear for the WhatsApp button', () => {
     isMobile,
   }) => {
     test.skip(browserName !== 'chromium' || !isMobile, 'safe areas are emulated over CDP: Chromium phone only');
+    // Fails, rather than skips, if a Chromium update drops the emulation: the
+    // safe-area padding would otherwise go unchecked without anyone noticing.
     const cdp = await page.context().newCDPSession(page);
-    const emulated = await cdp
-      .send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, right: 0, bottom: 34 } })
-      .then(
-        () => true,
-        () => false,
-      );
-    test.skip(!emulated, 'this Chromium cannot emulate a safe area');
-    // The intro at its fullest: the player, its message and the transcript.
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, right: 0, bottom: 34 } });
+    // The intro with its player and the video's message showing. (With its
+    // transcript open the intro is taller than the card and scrolls inside
+    // itself, like any card with enlarged text: then nothing is at rest.)
     await asIfIntroVideoExisted(page);
     await page.setViewportSize({ width: 430, height: 932 });
     await page.goto('/');
@@ -331,7 +329,8 @@ test.describe('the strip kept clear for the WhatsApp button', () => {
       for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
         if (getComputedStyle(card).display === 'none') continue;
         scroller.scrollTo({ top: scroller.scrollTop + card.getBoundingClientRect().top - window.__feedView().top, behavior: 'instant' });
-        for (const el of card.querySelectorAll<HTMLElement>('h2, h3, p, li, a[href], button, summary')) {
+        // What a reader reads or taps: the same elements as unreachable() checks.
+        for (const el of card.querySelectorAll<HTMLElement>('h2, h3, h4, p, li, blockquote, figcaption, summary, a[href], button')) {
           if (el.closest('dialog') || !el.checkVisibility()) continue;
           const over = el.getBoundingClientRect().bottom - button.top;
           if (over > 1) found.push(`${card.id}: <${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().slice(0, 30)}" +${Math.round(over)}px`);
