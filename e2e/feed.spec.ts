@@ -294,6 +294,55 @@ test.describe('everything on a card can be read', () => {
   }
 });
 
+test.describe('the strip kept clear for the WhatsApp button', () => {
+  // Over 800px tall the button sits in the bottom corner, raised by the
+  // phone's bottom safe area (an iPhone's home indicator, emulated here), and
+  // every card keeps a strip that tall clear of words and buttons.
+  test('no card puts words or buttons where the button is, with a 34px bottom safe area', async ({
+    page,
+    browserName,
+    isMobile,
+  }) => {
+    test.skip(browserName !== 'chromium' || !isMobile, 'safe areas are emulated over CDP: Chromium phone only');
+    const cdp = await page.context().newCDPSession(page);
+    const emulated = await cdp
+      .send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 0, right: 0, bottom: 34 } })
+      .then(
+        () => true,
+        () => false,
+      );
+    test.skip(!emulated, 'this Chromium cannot emulate a safe area');
+    // The intro at its fullest: the player, its message and the transcript.
+    await asIfIntroVideoExisted(page);
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto('/');
+    const inset = await page.evaluate(() => {
+      const probe = document.body.appendChild(document.createElement('div'));
+      probe.style.cssText = 'position: fixed; height: env(safe-area-inset-bottom, 0px)';
+      const { height } = probe.getBoundingClientRect();
+      probe.remove();
+      return height;
+    });
+    expect(inset, 'the page sees the emulated safe area').toBe(34);
+    const intrusions = await page.evaluate(() => {
+      const button = document.querySelector('.fab')!.getBoundingClientRect();
+      const scroller = window.__feedScroller();
+      const found: string[] = [];
+      for (const card of document.querySelectorAll<HTMLElement>('.feed > .card')) {
+        if (getComputedStyle(card).display === 'none') continue;
+        scroller.scrollTo({ top: scroller.scrollTop + card.getBoundingClientRect().top - window.__feedView().top, behavior: 'instant' });
+        for (const el of card.querySelectorAll<HTMLElement>('h2, h3, p, li, a[href], button, summary')) {
+          if (el.closest('dialog') || !el.checkVisibility()) continue;
+          const over = el.getBoundingClientRect().bottom - button.top;
+          if (over > 1) found.push(`${card.id}: <${el.tagName.toLowerCase()}> "${(el.textContent ?? '').trim().slice(0, 30)}" +${Math.round(over)}px`);
+        }
+      }
+      return found;
+    });
+    expect(intrusions).toEqual([]);
+  });
+});
+
 test.describe('project buttons', () => {
   for (const path of ['/', '/en/']) {
     test(`keep their label on one line and whole at 360×640 on ${path}`, async ({ page }) => {

@@ -437,7 +437,9 @@ html:not([data-tab]) .tabs {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 4rem 1.25rem 6rem;
+  /* Like every card, the words keep the WhatsApp button's strip clear — the
+     phone's bottom safe area included — with a little more air. */
+  padding: 4rem 1.25rem calc(var(--fab-room) + 1rem + env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgb(15 23 42 / 0.92) 55%, rgb(15 23 42 / 0));
 }
 .intro-name {
