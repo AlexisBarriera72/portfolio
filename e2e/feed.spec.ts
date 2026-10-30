@@ -930,6 +930,19 @@ test.describe('screenshots demo', () => {
       expect(box!.x + box!.width, device).toBeLessThanOrEqual(area!.x + area!.width + 0.5);
     }
   });
+
+  test('in English the buttons name the same devices the button and the pictures do', async ({ page }) => {
+    await page.goto('/en/melanie-creations/');
+    await page.getByRole('button', { name: 'See Melanie Creations’s site on a phone, tablet and computer' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    expect((await dialog.locator('.demo-device').allTextContents()).map((t) => t.trim())).toEqual([
+      'Phone',
+      'Tablet',
+      'Computer',
+    ]);
+    await dialog.getByRole('button', { name: 'Computer' }).click();
+    await expect(dialog.getByRole('img', { name: /^On a computer/ })).toBeVisible();
+  });
 });
 
 test.describe('live demo of a real client site', () => {

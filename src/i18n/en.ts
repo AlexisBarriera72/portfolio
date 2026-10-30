@@ -43,7 +43,7 @@ export const en: UIStrings = {
     devices: {
       phone: 'Phone',
       tablet: 'Tablet',
-      desktop: 'Desktop',
+      desktop: 'Computer',
     },
     visitSite: (client) => `Visit ${client}’s website`,
     visitSiteShort: 'Visit site',
