@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from './fixtures';
 
 /**
@@ -394,4 +394,13 @@ export async function withRealIntroMedia(page: Page) {
   await page.route('**/media/intro/saludo.*.vtt', (route) =>
     route.fulfill({ path: 'e2e/fixtures/clip.vtt', contentType: 'text/vtt' }),
   );
+}
+
+/**
+ * Whether this build's intro has a video. The intro is a picture card unless
+ * its data carries a `clip`; the video tests only apply when it does.
+ */
+export async function introHasVideo(request: APIRequestContext) {
+  const home = await (await request.get('/')).text();
+  return /<li[^>]*\bid="inicio"[\s\S]*?<\/li>/.exec(home)?.[0].includes('data-clip') ?? false;
 }

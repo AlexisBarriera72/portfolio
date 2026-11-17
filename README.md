@@ -57,27 +57,21 @@ job in CI fails on purpose (the strict build refuses placeholders and
 missing media) and the real site stays offline; the preview is unaffected.
 Today it is:
 
-- the real domain (`src/data/site.ts` → `url`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the intro video, its poster and its captions (`public/media/intro/`:
-  `saludo.webm`, `saludo.mp4`, `saludo.es.vtt` and `.en.vtt` timed to the
-  real recording; `src/assets/media/intro/saludo-poster.jpg`). Until the
-  video exists, a draft shows the intro's picture and words with no video
-  buttons.
 
-Done: the WhatsApp and phone number (787-344-4919), your portrait and the
-share image (`npm run share-image` redraws it from your name, the intro's
+Done: the address (`https://portfolio.elnenealexis72.workers.dev`, in
+`src/data/site.ts` → `url`), the WhatsApp and phone number (787-344-4919),
+your portrait and the share image (`npm run share-image` redraws it from your name, the intro's
 heading, your town and the cut-out portrait).
 
 The build can't tell whether these are yours yet — each is marked
 `TODO(alexis)` in a comment, not in the text, so nothing fails: the plan
 prices (`src/data/cards/30-precios.ts`), the "Sobre mí" text
-(`50-sobre-mi.ts`), your name as clients should read it
+(`50-sobre-mi.ts`) and your name as clients should read it
 (`src/data/site.ts` → `person.name`, which search engines get as the
-business's founder) and the intro's transcript (`00-intro.ts` →
-`transcript`), which has to say what the real video says. Two more TODOs
-are optional: a real contact form (`60-contacto.ts`) and El Break's owner
-photo, with their permission (`10-el-break.ts`).
+business's founder). Two more TODOs are optional: a real contact form
+(`60-contacto.ts`) and El Break's owner photo, with their permission
+(`10-el-break.ts`).
 
 Also worth doing:
 
@@ -184,9 +178,9 @@ To check a deployment by hand, for example a preview:
   the picture still opens it whole.
 - **Captures in the demo window wear their device**: a phone or tablet bezel,
   or a browser bar on the computer.
-- **Until the intro video exists**, a draft shows your portrait in its place
-  (the cut-out version, `site.person.cutout`, on a lit backdrop).
-  The real build still requires the video, its poster and captions.
+- **The intro is your portrait**, filling the card. A video greeting is
+  optional: add a `clip` to `src/data/cards/00-intro.ts` and the build then
+  requires its files, poster and captions.
 - **Wide screens** get a panel beside the feed: your name, the cards as a
   list, and the contact buttons.
 
