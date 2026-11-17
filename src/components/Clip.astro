@@ -20,7 +20,8 @@
  * transcript for a video nobody can play.
  */
 import { clipReady } from '../data';
-import type { Clip, Locale } from '../data/types';
+import { resolveImage } from '../data/media';
+import type { Clip, Img as ImgData, Locale } from '../data/types';
 import { t } from '../i18n';
 import Icon from './Icon.astro';
 import Img from './Img.astro';
@@ -30,16 +31,19 @@ interface Props {
   locale: Locale;
   /** Load the poster immediately (the page's own card). */
   eager?: boolean;
+  /** Shown while the poster file isn't added yet (a draft): see Intro.astro. */
+  standIn?: ImgData;
   class?: string;
 }
 
-const { clip, locale, eager = false, class: className } = Astro.props;
+const { clip, locale, eager = false, standIn, class: className } = Astro.props;
 const ui = t(locale).video;
 const pending = !clipReady(clip);
+const poster = !resolveImage(clip.poster) && standIn ? standIn : { src: clip.poster, alt: clip.posterAlt };
 ---
 
 <div class:list={['clip', className]} data-clip data-clip-pending={pending ? '' : undefined}>
-  <Img image={{ src: clip.poster, alt: clip.posterAlt }} locale={locale} eager={eager} class="clip-poster" />
+  <Img image={poster} locale={locale} eager={eager} sizes="(min-width: 768px) 440px, 100vw" class="clip-poster" />
   <video class="clip-video" muted loop playsinline preload="none" disableRemotePlayback aria-hidden="true">
     <source data-src={clip.webm} type="video/webm" />
     <source data-src={clip.mp4} type="video/mp4" />

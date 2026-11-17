@@ -41,6 +41,16 @@ export interface UIStrings {
     skipToContent: string;
     /** Hint on the first card only. */
     swipeHint: string;
+    /** Accessible name of the card list beside the feed on wide screens. */
+    sections: string;
+    /** Accessible name of that whole side panel. */
+    railLabel: string;
+  };
+
+  /** The dark/light switch: each names the theme it switches TO. */
+  theme: {
+    toLight: string;
+    toDark: string;
   };
 
   language: {

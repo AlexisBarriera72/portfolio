@@ -166,6 +166,25 @@ the repository or a chat message.
 To check a deployment by hand, for example a preview:
 `DEPLOY_KIND=preview DEPLOY_URL=https://portfolio-preview.<account>.workers.dev npm run test:deployed`.
 
+## Look and motion
+
+- **Dark by default, light on request.** Every colour is a token at the top
+  of `src/styles/global.css`; the light theme redefines the same tokens. The
+  switch is on the intro, on the last card and beside the feed on wide
+  screens, and the choice is remembered on that device.
+- **One display font**, for headings and prices: Bricolage Grotesque (SIL Open
+  Font License), self-hosted from the `@fontsource-variable` package, about
+  41 KB. Body text stays the phone's own font.
+- **Motion** never moves or resizes content — the card on screen is lit and its
+  neighbours wait dimmed, prices run up once, the WhatsApp button gives off a
+  ring — and all of it is off for visitors whose device asks for less motion.
+- **Screenshots stand in a phone frame** on the project cards; the button on
+  the picture still opens it whole.
+- **Until the intro video exists**, a draft shows your portrait in its place.
+  The real build still requires the video, its poster and captions.
+- **Wide screens** get a panel beside the feed: your name, the cards as a
+  list, and the contact buttons.
+
 ## How it is put together
 
 - `src/data/` — all content: `site.ts` (you, contact, service area),

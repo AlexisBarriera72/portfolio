@@ -22,6 +22,13 @@ export const es: UIStrings = {
     position: 'Tarjeta {index} de {total}',
     skipToContent: 'Ir al contenido',
     swipeHint: 'Desliza hacia arriba',
+    sections: 'Secciones',
+    railLabel: 'Resumen',
+  },
+
+  theme: {
+    toLight: 'Tema claro',
+    toDark: 'Tema oscuro',
   },
 
   language: {

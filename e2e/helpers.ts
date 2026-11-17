@@ -95,9 +95,12 @@ export const disableSnapping = (page: Page) =>
     document.documentElement.style.scrollSnapType = 'none';
   });
 
-/** Resolves after the next frame has been laid out (e.g. after a resize). */
+/** Resolves after the next frame has been laid out (e.g. after a resize), with the display font in: headings are measured as visitors see them. */
 export const nextFrame = (page: Page) =>
-  page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
 
 /** The shown cards whose content is taller than the card, as "id +Npx". */
 export const overflowing = (page: Page) =>

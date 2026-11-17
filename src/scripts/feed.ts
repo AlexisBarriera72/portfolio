@@ -12,7 +12,9 @@
  *  - the active card: the one under the middle of the feed. Its page path
  *    goes into the address bar (replaceState — scrolling never adds history
  *    entries), its title into the tab, the language link follows it, and
- *    the line under the bar shows how far along the tab it is;
+ *    the line under the bar shows how far along the tab it is, it alone is
+ *    lit (`is-active` — the others wait dimmed, see "motion" in the CSS),
+ *    and the list beside the feed on wide screens marks it;
  *  - video: only the active card and its neighbours hold their clip (every
  *    other clip is unloaded), and only the active one plays;
  *  - tabs: filter the feed, go into the URL (?tab=), and Back undoes them;
@@ -42,6 +44,7 @@ function init(feed: HTMLElement): void {
   const progress = document.querySelector<HTMLElement>('[data-feed-progress]');
   const prev = document.querySelector<HTMLButtonElement>('[data-feed-prev]');
   const next = document.querySelector<HTMLButtonElement>('[data-feed-next]');
+  const railLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-rail-link]')];
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let active: HTMLLIElement | undefined;
@@ -194,7 +197,14 @@ function init(feed: HTMLElement): void {
   const activate = (card: HTMLLIElement) => {
     if (card === destination) destination = undefined;
     if (card === active) return;
+    active?.classList.remove('is-active');
     active = card;
+    card.classList.add('is-active');
+    for (const link of railLinks) {
+      if (link.dataset.cardLink === card.id) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    }
+    countUp(card);
 
     const url = `${card.dataset.path}${location.search}`;
     if (`${location.pathname}${location.search}` !== url) history.replaceState(history.state, '', url);
@@ -220,6 +230,31 @@ function init(feed: HTMLElement): void {
         if (other === card) autoplayClip(clip);
         else pauseClip(clip);
       }
+    }
+  };
+
+  /**
+   * The first time a card with prices comes on screen, its numbers run up to
+   * their value, in under a second. Skipped under reduced motion. The text
+   * ends exactly as it was written.
+   */
+  const counted = new WeakSet<HTMLElement>();
+  const countUp = (card: HTMLElement) => {
+    if (reducedMotion.matches || counted.has(card)) return;
+    counted.add(card);
+    for (const price of card.querySelectorAll<HTMLElement>('.tier > .tier-price strong')) {
+      const final = price.textContent ?? '';
+      const value = Number(final.replace(/[^0-9]/g, ''));
+      if (!value) continue;
+      const start = performance.now();
+      const frame = (now: number) => {
+        const t = Math.min(1, (now - start) / 900);
+        // Ease out: fast at first, settling on the number.
+        const shown = Math.round(value * (1 - (1 - t) ** 3));
+        price.textContent = t < 1 ? final.replace(/[0-9][0-9.,]*/, shown.toLocaleString(root.lang)) : final;
+        if (t < 1) requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
     }
   };
 
@@ -260,6 +295,9 @@ function init(feed: HTMLElement): void {
     for (const card of cards) observer.observe(card);
   };
   observe();
+  // Light the card on screen now, then let the others dim (CSS: html.reveal).
+  check();
+  root.classList.add('reveal');
 
   // A resize (rotation, a toolbar, the on-screen keyboard) changes every
   // card's height. Keep the same card on screen — put it back exactly, rather
@@ -297,6 +335,7 @@ function init(feed: HTMLElement): void {
     if (!first) return;
     showTab(tab);
     history.pushState({ tab }, '', `${first.dataset.path}${tabSearch(tab)}`);
+    active?.classList.remove('is-active');
     active = undefined;
     destination = undefined;
     bodyOf(first).scrollTop = 0;
@@ -333,6 +372,7 @@ function init(feed: HTMLElement): void {
     const tab = (new URLSearchParams(location.search).get('tab') ?? DEFAULT_TAB) as FeedTab;
     showTab(FEED_TABS.includes(tab) ? tab : DEFAULT_TAB);
     const card = visibleCards().find((c) => c.dataset.path === location.pathname) ?? visibleCards()[0];
+    active?.classList.remove('is-active');
     active = undefined;
     destination = undefined;
     if (card) {

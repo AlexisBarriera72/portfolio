@@ -4,6 +4,7 @@ import type { EndCard, Locale } from '../../data/types';
 import { t } from '../../i18n';
 import Cta from '../Cta.astro';
 import Icon from '../Icon.astro';
+import ThemeToggle from '../ThemeToggle.astro';
 
 interface Props {
   card: EndCard;
@@ -25,4 +26,5 @@ const first = cards[0]!;
     <Icon name="arrow-up" size={18} />
     <span>{ui.end.startOver}</span>
   </a>
+  <ThemeToggle locale={locale} labelled />
 </div>

@@ -1,0 +1,45 @@
+---
+/**
+ * Wide screens only (CSS hides it elsewhere): the space beside the phone
+ * column says who this is, lists the cards, and offers the two ways to get in
+ * touch. Its links are ordinary links to each card's page; the feed script
+ * turns them into a scroll and marks the card on screen (aria-current).
+ */
+import { cards, pathForCard } from '../data';
+import { site } from '../data/site';
+import type { Cta, Locale } from '../data/types';
+import { t } from '../i18n';
+import CtaButton from './Cta.astro';
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const ui = t(locale);
+/** The contact card's own buttons, so the wording and the WhatsApp message are written once. */
+const contact: Cta[] = cards.flatMap((c) => (c.type === 'contact' ? c.primary : []));
+---
+
+<aside class="rail" aria-label={ui.nav.railLabel}>
+  <p class="rail-name">{site.person.name}</p>
+  <p class="rail-role">{site.person.role[locale]}</p>
+  <nav aria-label={ui.nav.sections}>
+    <ul class="rail-list">
+      {
+        cards.map((card) => (
+          <li>
+            <a class="rail-link" href={pathForCard(card, locale)} data-card-link={card.slug} data-rail-link>
+              {card.heading[locale]}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  <div class="rail-actions">
+    {contact.map((cta, i) => <CtaButton cta={cta} locale={locale} variant={i === 0 ? 'primary' : 'secondary'} />)}
+  </div>
+  <ThemeToggle locale={locale} labelled />
+</aside>

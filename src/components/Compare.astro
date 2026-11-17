@@ -39,7 +39,7 @@ const noteId = note ? `note-${card.slug}` : undefined;
 const zoomId = `zoom-${card.slug}`;
 ---
 
-<figure class="compare" data-compare={before ? '' : undefined}>
+<figure class="compare compare-stage" data-compare={before ? '' : undefined}>
   <CompareFrame card={card} locale={locale} eager={eager} noteId={noteId} />
   <button
     type="button"

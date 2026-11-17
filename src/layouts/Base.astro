@@ -8,7 +8,9 @@
  * the same feed, so each names its language's home page as canonical — Google
  * indexes one page per language, previews stay per card.
  */
+import '@fontsource-variable/bricolage-grotesque/wght.css';
 import '../styles/global.css';
+import displayFont from '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2?url';
 import { DEFAULT_TAB, FEED_TABS, type Card, type Locale } from '../data/types';
 import { absoluteUrl, alternates, localePath, otherLocale, t } from '../i18n';
 import { businessJsonLd, serializeJsonLd } from '../lib/seo';
@@ -33,17 +35,18 @@ const OG_LOCALE: Record<Locale, string> = { es: 'es_PR', en: 'en_US' };
 
 /**
  * Runs before first paint, so a shared "?tab=precios" link never flashes the
- * whole feed. It only sets attributes; CSS below does the hiding. Identical on
- * every page, so the CSP needs one hash for it.
+ * whole feed, and a visitor who chose the light theme never sees the dark one
+ * flash. It only sets attributes; CSS does the rest. Identical on every page,
+ * so the CSP needs one hash for it.
  */
-const tabScript = `(function(){var d=document.documentElement,a=${JSON.stringify(FEED_TABS)},t=new URLSearchParams(location.search).get('tab');if(a.indexOf(t)<0)t=${JSON.stringify(DEFAULT_TAB)};d.setAttribute('data-tab',t);if((' '+(d.getAttribute('data-card-tabs')||'')+' ').indexOf(' '+t+' ')<0)d.setAttribute('data-start','first')})()`;
+const tabScript = `(function(){var d=document.documentElement,a=${JSON.stringify(FEED_TABS)},t=new URLSearchParams(location.search).get('tab');if(a.indexOf(t)<0)t=${JSON.stringify(DEFAULT_TAB)};d.setAttribute('data-tab',t);if((' '+(d.getAttribute('data-card-tabs')||'')+' ').indexOf(' '+t+' ')<0)d.setAttribute('data-start','first');try{if(localStorage.getItem('theme')==='light')d.setAttribute('data-theme','light')}catch(e){}})()`;
 
 /** One hide rule and one "selected" rule per tab, generated so they can never drift from FEED_TABS. */
 const tabCss =
   FEED_TABS.map((tab) => `html[data-tab="${tab}"] .card:not([data-tabs~="${tab}"])`).join(',') +
   '{display:none}' +
   FEED_TABS.map((tab) => `html[data-tab="${tab}"] #tab-${tab}`).join(',') +
-  '{background:var(--color-ink);color:var(--color-paper)}';
+  '{background:var(--grad);color:#fff}';
 ---
 
 <!doctype html>
@@ -57,7 +60,8 @@ const tabCss =
     <link rel="canonical" href={absoluteUrl(localePath(locale))} />
     {alternates('/').map((alt) => <link rel="alternate" hreflang={alt.hreflang} href={alt.href} />)}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#ffffff" />
+    <link rel="preload" href={displayFont} as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#0e0e17" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={ui.siteName} />
