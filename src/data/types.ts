@@ -383,6 +383,12 @@ export interface SiteConfig {
     name: string;
     role: L10n;
     portrait: Img;
+    /**
+     * The same portrait with its background removed (a transparent WebP or
+     * PNG). Optional: where present it stands in for the intro's video in a
+     * draft, and `npm run share-image` puts it on the share picture.
+     */
+    cutout?: Img;
   };
   /** Your municipio. Drives "Local" copy and the JSON-LD address. */
   city: string;

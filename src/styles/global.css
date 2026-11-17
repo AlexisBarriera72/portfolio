@@ -450,7 +450,8 @@ html:not([data-tab]) .tabs {
   grid-template-rows: auto auto 1fr auto;
   /* Clips the picture's slow zoom (below) to the card. */
   overflow: clip;
-  background: #0b0b14;
+  /* Shows behind a cut-out portrait, and until any picture loads. */
+  background: radial-gradient(120% 70% at 50% 18%, #3b2a86 0%, #1a1438 55%, #0b0b14 100%);
   color: #fff;
 }
 /* Two classes, so these win over the generic .clip rules below. */
@@ -1254,6 +1255,28 @@ html:not([data-tab]) .tabs {
   border-radius: 0.75rem;
   box-shadow: 0 12px 30px -10px rgb(15 23 42 / 0.35);
 }
+/* Each capture sits in its device: a phone or tablet bezel, or a browser
+   window's bar with its three dots. All of it is border and padding on the
+   image itself, so the capture still fits whole in the stage. */
+.demo-shot[data-device='phone'] img {
+  border: 0.5rem solid #05050a;
+  border-radius: 2rem;
+}
+.demo-shot[data-device='tablet'] img {
+  border: 0.7rem solid #05050a;
+  border-radius: 1.6rem;
+}
+.demo-shot[data-device='desktop'] img {
+  padding-top: 1.7rem;
+  border: 1px solid #2a2a40;
+  background:
+    radial-gradient(circle at 0.95rem 0.85rem, #ff5f57 0.28rem, transparent 0.31rem),
+    radial-gradient(circle at 1.9rem 0.85rem, #febc2e 0.28rem, transparent 0.31rem),
+    radial-gradient(circle at 2.85rem 0.85rem, #28c840 0.28rem, transparent 0.31rem), #1c1c28;
+}
+.demo-shot img {
+  box-shadow: var(--glow);
+}
 .demo-shot picture {
   display: contents;
 }
@@ -1651,6 +1674,13 @@ html:not([data-tab]) .tabs {
       -webkit-background-clip: text;
       color: transparent;
     }
+  }
+  .rail-place {
+    margin-top: -0.6rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
   .rail-role {
     color: var(--color-muted);

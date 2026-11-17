@@ -428,6 +428,7 @@ function clipMedia(clip: Clip): MediaRef[] {
 function siteMedia(site: SiteConfig): MediaRef[] {
   return [
     { kind: 'image', src: site.person.portrait.src },
+    ...(site.person.cutout ? [{ kind: 'image', src: site.person.cutout.src } as const] : []),
     { kind: 'image', src: site.defaultShareImage },
   ];
 }

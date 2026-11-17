@@ -19,8 +19,8 @@ const ui = t(locale);
 ---
 
 <div class="intro">
-  {/* Until the video and its poster exist (a draft), your portrait stands in for them. */}
-  <Clip clip={card.clip} locale={locale} eager={eager} standIn={site.person.portrait} class="intro-clip" />
+  {/* Until the video and its poster exist (a draft), your portrait (cut out, where there is one) stands in for them. */}
+  <Clip clip={card.clip} locale={locale} eager={eager} standIn={site.person.cutout ?? site.person.portrait} class="intro-clip" />
   <ThemeToggle locale={locale} />
   <div class="intro-copy">
     <p class="intro-name">{card.name}</p>

@@ -1093,6 +1093,35 @@ test.describe('the card on screen', () => {
   });
 });
 
+test.describe('share picture', () => {
+  test('the home page offers a 1200×630 JPEG for link previews', async ({ page, request }) => {
+    await page.goto('/');
+    const image = await page.locator('meta[property="og:image"]').getAttribute('content');
+    expect(image, 'og:image').toBeTruthy();
+    const response = await request.get(new URL(image!).pathname);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toMatch(/^image\/jpeg/);
+  });
+});
+
+test.describe('device frames', () => {
+  test('each capture in the demo wears its device: bezels, and a browser bar on the computer', async ({ page }) => {
+    await page.goto('/melanie-creations/');
+    await page.getByRole('button', { name: /Ver el sitio de Melanie Creations en teléfono/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Melanie Creations' });
+    const style = (device: string) =>
+      dialog.locator(`.demo-shot[data-device="${device}"] img`).evaluate((img) => {
+        const s = getComputedStyle(img);
+        return { border: parseFloat(s.borderTopWidth), bar: parseFloat(s.paddingTop) };
+      });
+    expect((await style('phone')).border).toBeGreaterThanOrEqual(6);
+    await dialog.getByRole('button', { name: 'Tableta' }).click();
+    expect((await style('tablet')).border).toBeGreaterThanOrEqual(8);
+    await dialog.getByRole('button', { name: 'Computadora' }).click();
+    expect((await style('desktop')).bar).toBeGreaterThanOrEqual(20);
+  });
+});
+
 test.describe('phone frame', () => {
   test('the screenshot stands as a phone on its stage, inside the card', async ({ page }) => {
     await page.goto('/el-break/');
@@ -1114,6 +1143,7 @@ test.describe('desktop', () => {
     await page.goto('/');
     const rail = page.getByRole('complementary', { name: 'Resumen' });
     await expect(rail).toBeVisible();
+    await expect(rail.locator('.rail-place')).toHaveText('Ponce, PR');
     await expect(rail.locator('[aria-current="true"]')).toHaveText('Páginas web para negocios de aquí');
     await rail.getByRole('link', { name: 'Cuánto cuesta' }).click();
     await expectAligned(page, 'precios');
