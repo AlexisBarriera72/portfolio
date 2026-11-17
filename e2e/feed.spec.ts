@@ -686,7 +686,10 @@ test.describe('a draft without the intro video', () => {
     page,
     request,
   }) => {
-    const gaps = (await (await request.get('/draft-missing.json')).json()) as { missing: string[] };
+    // Only a draft build publishes this list; a production build lacks nothing.
+    const manifest = await request.get('/draft-missing.json');
+    test.skip(!manifest.ok(), 'a production build: nothing is missing');
+    const gaps = (await manifest.json()) as { missing: string[] };
     test.skip(!gaps.missing.includes('/media/intro/saludo.webm'), 'this build has the intro video');
     const videoRequests: string[] = [];
     page.on('request', (r) => {

@@ -52,12 +52,13 @@ says exactly what and where.
 
 ## Before launch
 
-`npm run check:launch` prints the list. Until it is empty, the production
-job in CI fails on purpose (the strict build refuses placeholders and
-missing media) and the real site stays offline; the preview is unaffected.
-Today it is:
+`npm run check:launch` prints what the production build would refuse:
+placeholder text, missing media, a fake address. Today that list is empty,
+so `npm run build` succeeds and the site can be published.
 
-- the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
+Worth adding when you know it: what the site costs per year after the first
+(`src/data/cards/30-precios.ts` → `afterFirstYear`). The pricing card shows
+the line only once it is filled in.
 
 Done: the address (`https://portfolio.elnenealexis72.workers.dev`, in
 `src/data/site.ts` → `url`), the WhatsApp and phone number (787-344-4919),
@@ -123,8 +124,8 @@ separate Workers so a preview can never replace the real site:
   Actions → CI → Run workflow on `main` can refresh the preview without a code change.
 - **Every push to `main`** → the strict build goes to the `portfolio` Worker,
   on its workers.dev address or your domain. The strict build refuses to exist while anything is fake or
-  missing, so until the "Before launch" list is done this job fails on
-  purpose and nothing is deployed — the log lists what is left. After a
+  missing: if that ever happens again the job fails on purpose, nothing is
+  deployed, and the log lists what is left. After a
   deploy it checks the real domain (pages, contact links, share images,
   media, demos, the video playing) and measures loading speed: 3 runs on a
   simulated phone, median largest paint under 2 seconds and layout shift
