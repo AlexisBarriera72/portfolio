@@ -1471,9 +1471,9 @@ html:not([data-tab]) .tabs {
 }
 
 /* ------------------------------------------------------------------ intro
- * Until the video is recorded (a draft), the intro shows a portrait in its
- * place: it fills the card like the video will, under a slow wash of the
- * accent colours. The heading carries the accent as a gradient.
+ * The intro's picture fills the card (as a video does, when the card has
+ * one), under a slow wash of the accent colours. The heading carries the
+ * accent as a gradient.
  */
 .intro::before {
   content: '';
@@ -1597,10 +1597,11 @@ html:not([data-tab]) .tabs {
     opacity: 0.6;
   }
 
-  /* The intro's colours drift, and its stand-in picture zooms slowly. */
+  /* The intro's colours drift, and its picture zooms slowly. */
   .intro::before {
     animation: drift 14s ease-in-out infinite alternate;
   }
+  .intro-picture .clip-poster,
   .clip[data-clip-pending] .clip-poster {
     animation: zoom 24s ease-in-out infinite alternate;
   }

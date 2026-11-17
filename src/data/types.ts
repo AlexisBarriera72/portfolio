@@ -147,7 +147,7 @@ interface CardBase {
 /* --------------------------------------------------------------- card types */
 
 /**
- * First card. Loads eagerly — its poster is the LCP element, so it is the one
+ * First card. Loads eagerly — its picture is the LCP element, so it is the one
  * image on the site that is NOT lazy-loaded.
  */
 export interface IntroCard extends CardBase {
@@ -156,7 +156,10 @@ export interface IntroCard extends CardBase {
   name: string;
   /** One line on what you do. */
   role: L10n;
-  clip: Clip;
+  /** Fills the card. With a `clip`, it shows until the clip's own poster is added. */
+  picture: Img;
+  /** Optional: a short video greeting that plays over the card instead. */
+  clip?: Clip;
   cta: Cta;
 }
 
@@ -385,8 +388,7 @@ export interface SiteConfig {
     portrait: Img;
     /**
      * The same portrait with its background removed (a transparent WebP or
-     * PNG). Optional: where present it stands in for the intro's video in a
-     * draft, and `npm run share-image` puts it on the share picture.
+     * PNG). Optional: `npm run share-image` puts it on the share picture.
      */
     cutout?: Img;
   };

@@ -8,7 +8,9 @@ import type { SiteConfig } from './types';
  * WhatsApp link, and a wrong number here is a lost customer.
  */
 export const site: SiteConfig = {
-  url: 'https://example.com', // TODO(alexis): your domain, no trailing slash — astro.config reads this
+  // The free workers.dev address of the `portfolio` Worker. No trailing slash —
+  // astro.config reads this. Change it here if you later attach a domain.
+  url: 'https://portfolio.elnenealexis72.workers.dev',
 
   person: {
     name: 'Alexis', // TODO(alexis): full name as you want clients to read it
@@ -23,7 +25,8 @@ export const site: SiteConfig = {
         en: 'Alexis in a fluffy white hat with little horns and a black sweater, in a store.',
       },
     },
-    // The same photo with the store removed (cut out from retrato.webp).
+    // The same photo with the store removed (cut out from retrato.webp), for
+    // the share picture.
     cutout: {
       src: 'alexis/retrato-recorte.webp',
       alt: {

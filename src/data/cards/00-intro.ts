@@ -1,8 +1,9 @@
+import { site } from '../site';
 import type { IntroCard } from '../types';
 
 /**
- * First card of "Para ti" and the home page. Its poster image is the LCP
- * element there, so it is the only media on that page that loads eagerly.
+ * First card of "Para ti" and the home page. Its picture is the LCP element
+ * there, so it is the only media on that page that loads eagerly.
  * It is not in the other tabs: someone who taps "Contacto" wants the contact
  * card, not the intro video first.
  */
@@ -23,32 +24,10 @@ const card: IntroCard = {
     en: 'I build your business a website. Fast, works on your phone, no jargon.',
   },
 
-  clip: {
-    webm: '/media/intro/saludo.webm',
-    mp4: '/media/intro/saludo.mp4',
-    poster: 'intro/saludo-poster.jpg',
-    posterAlt: {
-      es: 'Alexis mirando a la cámara, listo para hablar.',
-      en: 'Alexis looking at the camera, about to speak.',
-    },
-    sound: true,
-    // TODO(alexis): write these from the real recording — one cue per line
-    // said, timed to the video. Until they exist, the production build stops.
-    captions: {
-      es: '/media/intro/saludo.es.vtt',
-      en: '/media/intro/saludo.en.vtt',
-    },
-    transcript: {
-      es: [
-        'Hola, soy Alexis. Hago páginas web para negocios pequeños en Puerto Rico.',
-        'Desliza para arriba y te enseño trabajos que he hecho y cuánto cuesta.',
-      ],
-      en: [
-        'Hi, I am Alexis. I build websites for small businesses in Puerto Rico.',
-        'Swipe up and I will show you work I have done and what it costs.',
-      ],
-    },
-  },
+  // Your portrait fills the card. To greet visitors with a video instead, add
+  // a `clip` here (see IntroCard in ../types.ts): WebM + MP4 under 2 MB each in
+  // public/media/intro/, a poster image, and captions in both languages.
+  picture: site.person.portrait,
 
   cta: {
     kind: 'card',

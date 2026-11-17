@@ -230,7 +230,7 @@ function checkCardType(card: Card, site: SiteConfig, today: string, problems: st
       return;
 
     case 'intro':
-      checkClip(card.clip, `${at} clip`, problems);
+      if (card.clip) checkClip(card.clip, `${at} clip`, problems);
       return;
 
     case 'about':
@@ -373,7 +373,7 @@ export function urlsOf(card: Card): { where: string; url: string }[] {
 function clipsOf(card: Card): Clip[] {
   switch (card.type) {
     case 'intro':
-      return [card.clip];
+      return card.clip ? [card.clip] : [];
     case 'project':
       return card.demo.mode === 'recorded' ? [card.demo.clip] : [];
     case 'pricing':
@@ -401,6 +401,8 @@ export function mediaOf(card: Card): MediaRef[] {
       images.push(card.portrait);
       break;
     case 'intro':
+      images.push(card.picture);
+      break;
     case 'pricing':
     case 'inclusions':
     case 'contact':

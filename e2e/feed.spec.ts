@@ -22,6 +22,7 @@ import {
   withRealIntroMedia,
   withoutPendingClips,
   asIfIntroVideoExisted,
+  introHasVideo,
 } from './helpers';
 
 /**
@@ -284,10 +285,13 @@ test.describe('everything on a card can be read', () => {
         const problems: string[] = [];
         for (const slug of PARA_TI) problems.push(...(await unreachable(page, slug)));
         // And with the intro's transcript open.
-        await page.locator('#inicio details.transcript').evaluate((d) => {
-          (d as HTMLDetailsElement).open = true;
-        });
-        problems.push(...(await unreachable(page, 'inicio')).map((p) => `transcript open: ${p}`));
+        const transcript = page.locator('#inicio details.transcript');
+        if ((await transcript.count()) > 0) {
+          await transcript.evaluate((d) => {
+            (d as HTMLDetailsElement).open = true;
+          });
+          problems.push(...(await unreachable(page, 'inicio')).map((p) => `transcript open: ${p}`));
+        }
         expect(problems).toEqual([]);
       });
     }
@@ -497,6 +501,9 @@ test.describe('tabs', () => {
 });
 
 test.describe('video', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   test('only the active card and its neighbours fetch their clip', async ({ page }) => {
     await withRealIntroMedia(page);
     await page.goto('/');
@@ -569,6 +576,9 @@ const clipState = (page: Page) =>
   });
 
 test.describe('video window', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   test('only the card on screen and its neighbours hold a clip; only it plays; choices survive', async ({ page }) => {
     const requests = await withManyClips(page);
     await page.goto('/');
@@ -612,6 +622,9 @@ test.describe('video window', () => {
 });
 
 test.describe('video window: stale results', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   test('a late failure from an earlier load never marks the reloaded clip as failed', async ({ page }) => {
     await withManyClips(page);
     // clip-1's first play() only settles 1.5s later, as a failure ("no playable
@@ -646,6 +659,28 @@ test.describe('video window: stale results', () => {
   });
 });
 
+test.describe('intro picture', () => {
+  test('with no video, the portrait fills the intro card: no player, nothing to fetch', async ({ page, request }) => {
+    test.skip(await introHasVideo(request), 'this build greets with a video');
+    const media: string[] = [];
+    page.on('request', (r) => {
+      if (r.resourceType() === 'media') media.push(r.url());
+    });
+    await page.goto('/');
+    const intro = page.locator('#inicio');
+    const portrait = intro.getByRole('img', { name: /^Alexis, con un gorro/ });
+    await expect(portrait).toBeVisible();
+    await expect(portrait).toHaveAttribute('loading', 'eager');
+    const [card, picture] = [(await intro.boundingBox())!, (await portrait.boundingBox())!];
+    expect(picture.width).toBeGreaterThan(card.width - 2);
+    expect(picture.height).toBeGreaterThan(card.height - 2);
+    await expect(intro.locator('video, .clip-controls, .transcript')).toHaveCount(0);
+    await expect(intro.getByRole('link', { name: 'Ver precios' })).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(media).toEqual([]);
+  });
+});
+
 test.describe('a draft without the intro video', () => {
   test('the first screen shows the picture and words: no error, no video buttons, no transcript, no video fetched', async ({
     page,
@@ -674,6 +709,9 @@ test.describe('a draft without the intro video', () => {
 });
 
 test.describe('intro clip', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 360, height: 640 },
@@ -699,6 +737,9 @@ test.describe('intro clip', () => {
 });
 
 test.describe('captions and transcript', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   test('a spoken clip has a captions toggle and a visible transcript', async ({ page }) => {
     await withRealIntroMedia(page);
     await page.goto('/');
@@ -719,6 +760,9 @@ test.describe('captions and transcript', () => {
 
 
 test.describe('playback', () => {
+  test.beforeEach(async ({ request }) => {
+    test.skip(!(await introHasVideo(request)), 'the intro is a picture in this build: no video to test');
+  });
   test('the active card’s clip really plays, with its captions', async ({ page }) => {
     await withRealIntroMedia(page);
     await page.goto('/');

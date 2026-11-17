@@ -5,6 +5,7 @@ import type {
   ContactCard,
   EndCard,
   InclusionsCard,
+  Clip,
   IntroCard,
   PricingCard,
   ProjectCard,
@@ -30,7 +31,8 @@ function fixture() {
     },
     defaultShareImage: 'share.jpg',
   };
-  const intro: IntroCard = {
+  // With a video, so the clip rules are exercised; a real intro may have none.
+  const intro: IntroCard & { clip: Clip } = {
     type: 'intro',
     slug: 'inicio',
     tabs: ['para-ti', 'local', 'precios', 'sobre-mi', 'contacto'],
@@ -38,6 +40,7 @@ function fixture() {
     heading: l('Hola'),
     name: 'Alexis',
     role: l('role'),
+    picture: img('intro-picture.webp'),
     clip: {
       webm: '/media/intro.webm',
       mp4: '/media/intro.mp4',
