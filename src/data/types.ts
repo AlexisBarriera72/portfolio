@@ -297,10 +297,11 @@ export interface PricingCard extends CardBase {
   note: L10n;
   /**
    * What it costs to keep the site up after year one (domain renewal, hosting).
-   * Required: an unstated recurring cost is exactly the surprise a business
-   * owner is afraid of.
+   * Optional, but worth stating once you know it: an unstated recurring cost is
+   * exactly the surprise a business owner is afraid of. Without it the card
+   * shows no such line.
    */
-  afterFirstYear: L10n;
+  afterFirstYear?: L10n;
   cta: Cta;
 }
 

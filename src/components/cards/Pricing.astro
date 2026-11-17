@@ -81,6 +81,12 @@ const panelId = (tierId: string) => `plan-${card.slug}-${tierId}`;
 </ul>
 
 <p class="fine-print">{card.note[locale]}</p>
-<p class="fine-print"><strong>{ui.afterFirstYear}:</strong> {card.afterFirstYear[locale]}</p>
+{
+  card.afterFirstYear && (
+    <p class="fine-print">
+      <strong>{ui.afterFirstYear}:</strong> {card.afterFirstYear[locale]}
+    </p>
+  )
+}
 
 <Cta cta={card.cta} locale={locale} class="self-start" />
