@@ -24,6 +24,7 @@ const contact: Cta[] = cards.flatMap((c) => (c.type === 'contact' ? c.primary : 
 
 <aside class="rail" aria-label={ui.nav.railLabel}>
   <p class="rail-name">{site.person.name}</p>
+  <p class="rail-place">{site.city}, PR</p>
   <p class="rail-role">{site.person.role[locale]}</p>
   <nav aria-label={ui.nav.sections}>
     <ul class="rail-list">

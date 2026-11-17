@@ -23,6 +23,14 @@ export const site: SiteConfig = {
         en: 'Alexis in a fluffy white hat with little horns and a black sweater, in a store.',
       },
     },
+    // The same photo with the store removed (cut out from retrato.webp).
+    cutout: {
+      src: 'alexis/retrato-recorte.webp',
+      alt: {
+        es: 'Alexis, con un gorro de peluche blanco con cuernitos y un suéter negro.',
+        en: 'Alexis in a fluffy white hat with little horns and a black sweater.',
+      },
+    },
   },
 
   city: 'Ponce',

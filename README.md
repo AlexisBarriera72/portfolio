@@ -16,6 +16,7 @@ Cloudflare.
 | `npm test`             | Unit tests (content rules, links, SEO, security headers).                                        |
 | `npm run test:e2e`     | Browser tests on phone and desktop sizes (build first).                                          |
 | `npm run test:deployed`| Checks a real deployment: `DEPLOY_KIND=preview\|production DEPLOY_URL=https://… npm run test:deployed`. |
+| `npm run share-image`  | Redraws the share picture (`src/assets/media/share-default.jpg`) from the site's own words and portrait. |
 | `npm run capture`      | Screenshots a site at phone, tablet and desktop size for its project card (see below).          |
 
 ## Adding a project
@@ -58,14 +59,15 @@ Today it is:
 
 - the real domain (`src/data/site.ts` → `url`);
 - the price after the first year (`src/data/cards/30-precios.ts` → `afterFirstYear`);
-- the share image (`src/assets/media/share-default.jpg`);
 - the intro video, its poster and its captions (`public/media/intro/`:
   `saludo.webm`, `saludo.mp4`, `saludo.es.vtt` and `.en.vtt` timed to the
   real recording; `src/assets/media/intro/saludo-poster.jpg`). Until the
   video exists, a draft shows the intro's picture and words with no video
   buttons.
 
-Done: the WhatsApp and phone number (787-344-4919) and your portrait.
+Done: the WhatsApp and phone number (787-344-4919), your portrait and the
+share image (`npm run share-image` redraws it from your name, the intro's
+heading, your town and the cut-out portrait).
 
 The build can't tell whether these are yours yet — each is marked
 `TODO(alexis)` in a comment, not in the text, so nothing fails: the plan
@@ -180,7 +182,10 @@ To check a deployment by hand, for example a preview:
   ring — and all of it is off for visitors whose device asks for less motion.
 - **Screenshots stand in a phone frame** on the project cards; the button on
   the picture still opens it whole.
-- **Until the intro video exists**, a draft shows your portrait in its place.
+- **Captures in the demo window wear their device**: a phone or tablet bezel,
+  or a browser bar on the computer.
+- **Until the intro video exists**, a draft shows your portrait in its place
+  (the cut-out version, `site.person.cutout`, on a lit backdrop).
   The real build still requires the video, its poster and captions.
 - **Wide screens** get a panel beside the feed: your name, the cards as a
   list, and the contact buttons.
