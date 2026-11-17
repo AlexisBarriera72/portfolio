@@ -1,0 +1,25 @@
+---
+/**
+ * Switches between the dark theme (the default) and the light one. The label
+ * names the theme it switches to; src/scripts/theme.ts keeps it in step and
+ * remembers the choice. Rendered for the dark theme, as the page first is.
+ * `labelled` shows the words; otherwise they are for screen readers only.
+ */
+import type { Locale } from '../data/types';
+import { t } from '../i18n';
+import Icon from './Icon.astro';
+
+interface Props {
+  locale: Locale;
+  labelled?: boolean;
+}
+
+const { locale, labelled = false } = Astro.props;
+const ui = t(locale).theme;
+---
+
+<button type="button" class="theme-toggle" data-theme-toggle data-to-light={ui.toLight} data-to-dark={ui.toDark}>
+  <Icon name="sun" class="icon-sun" />
+  <Icon name="moon" class="icon-moon" />
+  <span class:list={[{ 'sr-only': !labelled }]} data-theme-label>{ui.toLight}</span>
+</button>

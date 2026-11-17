@@ -6,6 +6,7 @@
  */
 import { getImage } from 'astro:assets';
 import FeedArrows from '../components/FeedArrows.astro';
+import Rail from '../components/Rail.astro';
 import Feed from '../components/Feed.astro';
 import TopBar from '../components/TopBar.astro';
 import WhatsAppButton from '../components/WhatsAppButton.astro';
@@ -47,6 +48,7 @@ const share = shareSource
     </main>
     <WhatsAppButton locale={locale} />
   </div>
+  <Rail locale={locale} />
   <FeedArrows locale={locale} />
 </Base>
 
@@ -55,4 +57,5 @@ const share = shareSource
   import '../scripts/compare';
   import '../scripts/demo';
   import '../scripts/dialogs';
+  import '../scripts/theme';
 </script>

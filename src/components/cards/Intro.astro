@@ -1,10 +1,12 @@
 ---
+import { site } from '../../data/site';
 import type { IntroCard, Locale } from '../../data/types';
 import { t } from '../../i18n';
 import Clip from '../Clip.astro';
 import ClipTranscript from '../ClipTranscript.astro';
 import Cta from '../Cta.astro';
 import Icon from '../Icon.astro';
+import ThemeToggle from '../ThemeToggle.astro';
 
 interface Props {
   card: IntroCard;
@@ -17,7 +19,9 @@ const ui = t(locale);
 ---
 
 <div class="intro">
-  <Clip clip={card.clip} locale={locale} eager={eager} class="intro-clip" />
+  {/* Until the video and its poster exist (a draft), your portrait stands in for them. */}
+  <Clip clip={card.clip} locale={locale} eager={eager} standIn={site.person.portrait} class="intro-clip" />
+  <ThemeToggle locale={locale} />
   <div class="intro-copy">
     <p class="intro-name">{card.name}</p>
     <h2 id={`h-${card.slug}`} class="intro-heading">{card.heading[locale]}</h2>

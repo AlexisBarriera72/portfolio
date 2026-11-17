@@ -667,6 +667,8 @@ test.describe('a draft without the intro video', () => {
     await expect(intro.locator('.clip-error')).toBeHidden();
     await expect(intro.locator('[data-clip-error-text]')).toHaveText('');
     await expect(intro.locator('.transcript')).toBeHidden();
+    // The portrait stands in for the video's picture, filling the card.
+    await expect(intro.getByRole('img', { name: /^Alexis, con un gorro/ })).toBeVisible();
     expect(videoRequests).toEqual([]);
   });
 });
@@ -1033,8 +1035,92 @@ test.describe('accessibility', () => {
   });
 });
 
+test.describe('theme', () => {
+  test('dark by default; the switch turns it light, says so, and the choice is remembered', async ({ page }) => {
+    await page.goto('/fin/');
+    const html = page.locator('html');
+    const toggle = page.locator('#fin [data-theme-toggle]');
+    await expect(html).not.toHaveAttribute('data-theme', /.*/);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0e0e17');
+    await expect(toggle).toHaveText('Tema claro');
+
+    await toggle.click();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+    await expect(toggle).toHaveText('Tema oscuro');
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#ffffff');
+
+    // Remembered: applied by the head script, before the page's own scripts.
+    await page.reload();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+    await expect(toggle).toHaveText('Tema oscuro');
+    await toggle.click();
+    await expect(html).not.toHaveAttribute('data-theme', /.*/);
+  });
+
+  test('no axe violations in the light theme either', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('theme', 'light'));
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+});
+
+test.describe('the card on screen', () => {
+  test('is the only one lit, and stays so as the feed moves', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveClass(/reveal/);
+    const lit = () => page.locator('.feed > .card.is-active').evaluateAll((cards) => cards.map((c) => c.id));
+    expect(await lit()).toEqual(['inicio']);
+    await page.keyboard.press('End');
+    await expect.poll(lit).toEqual(['fin']);
+    await page.getByRole('tab', { name: 'Precios' }).click();
+    await expect.poll(lit).toEqual(['precios']);
+  });
+
+  test('prices run up to their value and end exactly as written', async ({ page }) => {
+    await page.goto('/precios/');
+    const prices = page.locator('#precios .tier > .tier-price strong');
+    await expect(prices).toHaveText(['$450', '$900', '$30']);
+  });
+
+  test('with reduced motion nothing is dimmed and prices do not run', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/precios/');
+    expect(await page.locator('#precios .tier > .tier-price strong').allTextContents()).toEqual(['$450', '$900', '$30']);
+    const veil = await page.locator('#contacto').evaluate((card) => getComputedStyle(card, '::after').content);
+    expect(veil).toBe('none');
+  });
+});
+
+test.describe('phone frame', () => {
+  test('the screenshot stands as a phone on its stage, inside the card', async ({ page }) => {
+    await page.goto('/el-break/');
+    const stage = (await page.locator('#el-break .compare-stage').boundingBox())!;
+    const phone = (await page.locator('#el-break .compare-stage .compare-frame').boundingBox())!;
+    expect(phone.width).toBeLessThanOrEqual(stage.width);
+    expect(phone.x).toBeGreaterThanOrEqual(stage.x);
+    // Centred, and standing on the stage's lower edge.
+    expect(Math.abs(phone.x + phone.width / 2 - (stage.x + stage.width / 2))).toBeLessThanOrEqual(1);
+    expect(Math.abs(phone.y + phone.height - (stage.y + stage.height))).toBeLessThanOrEqual(2);
+  });
+});
+
 test.describe('desktop', () => {
   test.skip(({ isMobile }) => isMobile, 'arrows are a desktop control');
+
+  test('the list beside the feed marks the card on screen and jumps to the one clicked', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 1180, 'the side panel needs a wide window');
+    await page.goto('/');
+    const rail = page.getByRole('complementary', { name: 'Resumen' });
+    await expect(rail).toBeVisible();
+    await expect(rail.locator('[aria-current="true"]')).toHaveText('Páginas web para negocios de aquí');
+    await rail.getByRole('link', { name: 'Cuánto cuesta' }).click();
+    await expectAligned(page, 'precios');
+    await expect(page).toHaveURL(/\/precios\/$/);
+    await expect(rail.locator('[aria-current="true"]')).toHaveText('Cuánto cuesta');
+    await expect(rail.getByRole('link', { name: /WhatsApp/ })).toHaveAttribute('href', /^https:\/\/wa\.me\/17873444919/);
+  });
 
   test('the arrows step through the feed', async ({ page }) => {
     await page.goto('/');

@@ -24,6 +24,13 @@ export const en: UIStrings = {
     position: 'Card {index} of {total}',
     skipToContent: 'Skip to content',
     swipeHint: 'Swipe up',
+    sections: 'Sections',
+    railLabel: 'Overview',
+  },
+
+  theme: {
+    toLight: 'Light theme',
+    toDark: 'Dark theme',
   },
 
   language: {
